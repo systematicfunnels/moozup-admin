@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand Colors */
+  --color-brand-primary: #2563eb;
+  --color-brand-secondary: #1e293b;
+
+  /* Semantic Colors */
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-danger: #ef4444;
+
+  /* Surface Colors */
+  --color-surface-base: #f8fafc;
+  --color-surface-card: #ffffff;
+
+  /* Border Colors */
+  --color-border-subtle: #e2e8f0;
+
+  /* Spacing & Radius */
+  --spacing-base: 8px;
+  --radius-s: 4px;
+  --radius-m: 8px;
+  --radius-l: 12px;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-base text-slate-900 font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-brand-secondary font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .admin-grid {
+    @apply grid grid-cols-12 gap-6 max-w-[1600px] mx-auto px-6;
+  }
+
+  .sticky-table-header {
+    @apply sticky top-0 bg-surface-base border-b border-border-subtle z-10;
+  }
+}
