@@ -4,16 +4,21 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { User, Mail, Plus, Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useDirectory, useUpdateUserStatus, useCommunities } from '../hooks/useApi';
+import { useEventContext } from '../context/EventContext';
 import { Button } from '../components/ui/Button';
-import { AddMemberModal } from '../components/directory/AddMemberModal';
+import { CreateMemberModal } from '../components/directory/CreateMemberModal';
+import type { ApiError } from '../types/api';
 
 export default function DirectoryPage() {
-  const { data: users, isLoading, isError, error } = useDirectory();
-  const { data: communities } = useCommunities();
+  const { selectedEventId } = useEventContext();
+  const { data: users, isLoading, isError, error } = useDirectory(selectedEventId || undefined);
+  const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
   const updateUserStatus = useUpdateUserStatus();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
+
+  const apiError = error as ApiError | null;
 
   const handleStatusToggle = async (userId: number, currentStatus: boolean) => {
     // If approving, we might want to assign a community
@@ -61,7 +66,7 @@ export default function DirectoryPage() {
         <AlertCircle className="w-12 h-12 text-status-danger mb-4" />
         <h3 className="text-lg font-semibold text-slate-900">Failed to load directory</h3>
         <p className="text-slate-500 max-w-md mt-2">
-          {(error as any)?.message || 'There was an error connecting to the server. Please try again later.'}
+          {apiError?.message || 'There was an error connecting to the server. Please try again later.'}
         </p>
         <Button className="mt-6" onClick={() => window.location.reload()}>
           Retry
@@ -82,7 +87,7 @@ export default function DirectoryPage() {
         }}
       />
 
-      <AddMemberModal 
+      <CreateMemberModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
@@ -104,10 +109,11 @@ export default function DirectoryPage() {
                 <select
                   value={selectedCommunityId}
                   onChange={(e) => setSelectedCommunityId(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:opacity-50"
+                  disabled={isLoadingCommunities}
                 >
-                  <option value="">No Community</option>
-                  {communities?.map((community) => (
+                  <option value="">{isLoadingCommunities ? 'Loading communities...' : 'No Community'}</option>
+                  {!isLoadingCommunities && communities?.map((community) => (
                     <option key={community.id} value={community.id}>
                       {community.name}
                     </option>
@@ -143,7 +149,7 @@ export default function DirectoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-border-subtle bg-slate-50/50">
+                <tr className="border-b border-slate-200 bg-slate-50/50">
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Member</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Community</th>
@@ -153,12 +159,12 @@ export default function DirectoryPage() {
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle">
+              <tbody className="divide-y divide-slate-200">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-border-subtle">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
                           {user.profilePicture ? (
                             <img src={user.profilePicture} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full object-cover" />
                           ) : (

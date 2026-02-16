@@ -2,35 +2,40 @@ import React, { useState } from 'react';
 import { X, Calendar, MapPin, Share2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useCreateEvent } from '../../hooks/useApi';
+import { useCreateEvent, useUpdateEvent } from '../../hooks/useApi';
+import type { Event } from '../../types/api';
 
 interface CreateEventModalProps {
   isOpen: boolean;
   onClose: () => void;
+  eventToEdit?: Event | null;
 }
 
-export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
+export function CreateEventModal({ isOpen, onClose, eventToEdit }: CreateEventModalProps) {
   const [step, setStep] = useState(1);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const createEventMutation = useCreateEvent();
-    const [formData, setFormData] = useState({
-    eventName: '',
-    eventDescription: '',
-    eventStartDate: '',
-    eventEndDate: '',
-    startTime: '',
-    endTime: '',
-    eventLocation: '',
-    moozupWebsite: '',
-    eventWebsite: '',
-    facebookId: '',
-    facebookPageUrl: '',
-    twitterId: '',
-    twitterPageUrl: '',
-    twitterHashtag: '',
-    linkedInPageUrl: '',
-    meraEventsId: '',
-    ticketWidget: '',
-    streamUrl: '',
+  const updateEventMutation = useUpdateEvent();
+
+  const [formData, setFormData] = useState({
+    eventName: eventToEdit?.eventName || '',
+    eventDescription: eventToEdit?.eventDescription || '',
+    eventStartDate: eventToEdit?.eventStartDate ? new Date(eventToEdit.eventStartDate).toISOString().split('T')[0] : '',
+    eventEndDate: eventToEdit?.eventEndDate ? new Date(eventToEdit.eventEndDate).toISOString().split('T')[0] : '',
+    startTime: eventToEdit?.startTime || '',
+    endTime: eventToEdit?.endTime || '',
+    eventLocation: eventToEdit?.eventLocation || '',
+    moozupWebsite: eventToEdit?.moozupWebsite || '',
+    eventWebsite: eventToEdit?.eventWebsite || '',
+    facebookId: eventToEdit?.facebookId || '',
+    facebookPageUrl: eventToEdit?.facebookPageUrl || '',
+    twitterId: eventToEdit?.twitterId || '',
+    twitterPageUrl: eventToEdit?.twitterPageUrl || '',
+    twitterHashtag: eventToEdit?.twitterHashtag || '',
+    linkedInPageUrl: eventToEdit?.linkedInPageUrl || '',
+    meraEventsId: eventToEdit?.meraEventsId || '',
+    ticketWidget: eventToEdit?.ticketWidget || '',
+    streamUrl: eventToEdit?.streamUrl || '',
   });
 
   const [files, setFiles] = useState<{ logo: File | null; banner: File | null }>({
@@ -40,12 +45,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
 
   if (!isOpen) return null;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTextAreaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -68,12 +68,21 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     if (files.banner) data.append('banner', files.banner);
 
     try {
-      await createEventMutation.mutateAsync(data);
+      if (eventToEdit) {
+        await updateEventMutation.mutateAsync({ 
+          id: eventToEdit.id,
+          data, 
+          onProgress: (percent) => setUploadProgress(percent) 
+        });
+      } else {
+        await createEventMutation.mutateAsync({ 
+          data, 
+          onProgress: (percent) => setUploadProgress(percent) 
+        });
+      }
       onClose();
-      // Reset form
-      setStep(1);
     } catch (error) {
-      console.error('Failed to create event:', error);
+      console.error('Failed to save event:', error);
     }
   };
 
@@ -99,8 +108,8 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
               <textarea
                 name="eventDescription"
                 value={formData.eventDescription}
-                onChange={handleTextAreaChange}
-                className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-main focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                onChange={handleInputChange}
+                className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
                 placeholder="Enter event description"
                 required
               />
@@ -245,7 +254,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, 'logo')}
-                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-main file:text-white hover:file:bg-primary-dark cursor-pointer"
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-main file:text-white hover:file:bg-primary-dark cursor-pointer transition-all"
               />
             </div>
             <div className="space-y-2">
@@ -254,7 +263,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                 type="file"
                 accept="image/*"
                 onChange={(e) => handleFileChange(e, 'banner')}
-                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-main file:text-white hover:file:bg-primary-dark cursor-pointer"
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-main file:text-white hover:file:bg-primary-dark cursor-pointer transition-all"
               />
             </div>
           </div>
@@ -269,8 +278,28 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Create New Event</h2>
-            <p className="text-sm text-slate-500">Step {step} of 4</p>
+            <h2 className="text-xl font-bold text-slate-900">{eventToEdit ? 'Edit Event' : 'Create New Event'}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm font-medium text-primary-main">Step {step} of 4</p>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 w-6 rounded-full transition-colors ${
+                      i <= step ? 'bg-primary-main' : 'bg-slate-200'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-primary-main h-full transition-all duration-300" 
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -305,9 +334,9 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
             <Button
               type="submit"
               onClick={handleSubmit}
-              isLoading={createEventMutation.isPending}
+              isLoading={createEventMutation.isPending || updateEventMutation.isPending}
             >
-              Create Event
+              {eventToEdit ? 'Save Changes' : 'Create Event'}
             </Button>
           )}
         </div>

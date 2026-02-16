@@ -11,7 +11,7 @@ export default function ModerationPage() {
       />
       <Card>
         <CardContent className="p-0">
-          <div className="border-b border-border-subtle p-4 flex items-center justify-between">
+          <div className="border-b border-slate-200 p-4 flex items-center justify-between">
             <h3 className="font-semibold text-sm">Pending Approval</h3>
             <Badge intent="warning">0 Items</Badge>
           </div>

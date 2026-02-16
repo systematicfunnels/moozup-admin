@@ -3,17 +3,21 @@ import { X, User, Building2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCreateDirectoryUser, useParticipationTypes, useCommunities } from '../../hooks/useApi';
+import { useEventContext } from '../../context/EventContext';
 
-interface AddMemberModalProps {
+import type { Community, ParticipationType } from '../../types/api';
+
+interface CreateMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
+export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
   const [step, setStep] = useState(1);
+  const { selectedEventId } = useEventContext();
   const createMemberMutation = useCreateDirectoryUser();
-  const { data: participationTypes } = useParticipationTypes();
-  const { data: communities } = useCommunities();
+  const { data: participationTypes, isLoading: isLoadingParticipationTypes } = useParticipationTypes(selectedEventId ?? undefined);
+  const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -105,7 +109,7 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <User className="h-5 w-5 text-brand-primary" />
+              <User className="h-5 w-5 text-primary-main" />
               Basic Information
             </h3>
             <div className="grid grid-cols-2 gap-4">
@@ -152,10 +156,13 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
                 value={formData.participationTypeId}
                 onChange={handleInputChange}
                 required
-                className="flex h-10 w-full rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isLoadingParticipationTypes}
               >
-                <option value="">Select Type</option>
-                {participationTypes?.map((type: any) => (
+                <option value="">
+                  {isLoadingParticipationTypes ? 'Loading types...' : 'Select Type'}
+                </option>
+                {!isLoadingParticipationTypes && participationTypes?.map((type: ParticipationType) => (
                   <option key={type.id} value={type.id}>
                     {type.personParticipationType || type.groupParticipationName}
                   </option>
@@ -170,10 +177,11 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
                 name="communityId"
                 value={formData.communityId}
                 onChange={handleInputChange}
-                className="flex h-10 w-full rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={isLoadingCommunities}
               >
-                <option value="">No Community</option>
-                {communities?.map((community: any) => (
+                <option value="">{isLoadingCommunities ? 'Loading communities...' : 'No Community'}</option>
+                {!isLoadingCommunities && communities?.map((community: Community) => (
                   <option key={community.id} value={community.id}>
                     {community.name}
                   </option>
@@ -186,7 +194,7 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-brand-primary" />
+              <Building2 className="h-5 w-5 text-primary-main" />
               Professional Details
             </h3>
             <Input
@@ -232,7 +240,7 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-brand-primary" />
+              <ImageIcon className="h-5 w-5 text-primary-main" />
               Profile Assets & Bio
             </h3>
             <div className="space-y-2">
@@ -241,7 +249,7 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
                 type="file"
                 accept="image/*"
                 onChange={handleFileChange}
-                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand-primary file:text-white hover:file:bg-brand-primary/90 cursor-pointer"
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-main file:text-white hover:file:bg-primary-main/90 cursor-pointer"
               />
             </div>
             <div className="space-y-1.5">
@@ -250,7 +258,7 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
                 name="description"
                 value={formData.description}
                 onChange={handleTextAreaChange}
-                className="flex min-h-[100px] w-full rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
                 placeholder="Brief bio about the member..."
               />
             </div>

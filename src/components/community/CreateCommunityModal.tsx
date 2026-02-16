@@ -1,56 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Globe, MapPin, Calendar, Info, Tag } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCreateCommunity, useUpdateCommunity } from '../../hooks/useApi';
 import type { Community } from '../../types/api';
 
-interface CommunityModalProps {
+interface CreateCommunityModalProps {
   isOpen: boolean;
   onClose: () => void;
   community?: Community;
 }
 
-export function CommunityModal({ isOpen, onClose, community }: CommunityModalProps) {
+export function CreateCommunityModal({ isOpen, onClose, community }: CreateCommunityModalProps) {
   const createCommunity = useCreateCommunity();
   const updateCommunity = useUpdateCommunity();
   
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    banner: '',
-    location: '',
-    startDate: '',
-    endDate: '',
-    about: '',
-    categories: '',
+    name: community?.name || '',
+    description: community?.description || '',
+    banner: community?.banner || '',
+    location: community?.location || '',
+    startDate: community?.startDate ? new Date(community.startDate).toISOString().split('T')[0] : '',
+    endDate: community?.endDate ? new Date(community.endDate).toISOString().split('T')[0] : '',
+    about: community?.about || '',
+    categories: community?.categories ? community.categories.join(', ') : '',
   });
-
-  useEffect(() => {
-    if (community) {
-      setFormData({
-        name: community.name || '',
-        description: community.description || '',
-        banner: community.banner || '',
-        location: community.location || '',
-        startDate: community.startDate ? new Date(community.startDate).toISOString().split('T')[0] : '',
-        endDate: community.endDate ? new Date(community.endDate).toISOString().split('T')[0] : '',
-        about: community.about || '',
-        categories: community.categories ? community.categories.join(', ') : '',
-      });
-    } else {
-      setFormData({
-        name: '',
-        description: '',
-        banner: '',
-        location: '',
-        startDate: '',
-        endDate: '',
-        about: '',
-        categories: '',
-      });
-    }
-  }, [community, isOpen]);
 
   if (!isOpen) return null;
 
@@ -67,11 +41,22 @@ export function CommunityModal({ isOpen, onClose, community }: CommunityModalPro
       categories: formData.categories.split(',').map(c => c.trim()).filter(c => c !== ''),
     };
 
+    const formDataToSend = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        if (Array.isArray(value)) {
+           value.forEach((v) => formDataToSend.append(`${key}[]`, v));
+        } else {
+           formDataToSend.append(key, value.toString());
+        }
+      }
+    });
+
     try {
       if (community) {
-        await updateCommunity.mutateAsync({ id: community.id, data });
+        await updateCommunity.mutateAsync({ id: community.id, data: formDataToSend });
       } else {
-        await createCommunity.mutateAsync(data);
+        await createCommunity.mutateAsync(formDataToSend);
       }
       onClose();
     } catch (error) {
@@ -82,7 +67,7 @@ export function CommunityModal({ isOpen, onClose, community }: CommunityModalPro
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-border-subtle">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">
             {community ? 'Edit Community' : 'Create New Community'}
           </h2>
@@ -110,7 +95,7 @@ export function CommunityModal({ isOpen, onClose, community }: CommunityModalPro
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                className="w-full min-h-[80px] rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+                className="w-full min-h-[80px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
                 placeholder="A short tagline or summary..."
               />
             </div>
@@ -169,7 +154,7 @@ export function CommunityModal({ isOpen, onClose, community }: CommunityModalPro
               name="about"
               value={formData.about}
               onChange={handleInputChange}
-              className="w-full min-h-[120px] rounded-md border border-border-subtle bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary"
+              className="w-full min-h-[120px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
               placeholder="Detailed information about the community..."
             />
           </div>
@@ -186,7 +171,7 @@ export function CommunityModal({ isOpen, onClose, community }: CommunityModalPro
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-border-subtle mt-6">
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-200 mt-6">
             <Button type="button" intent="secondary" onClick={onClose}>
               Cancel
             </Button>

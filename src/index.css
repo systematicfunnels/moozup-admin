@@ -2,7 +2,8 @@
 
 @theme {
   /* Brand Colors */
-  --color-brand-primary: #2563eb;
+  --color-primary-main: #2563eb;
+  --color-primary-dark: #1d4ed8;
   --color-brand-secondary: #1e293b;
 
   /* Semantic Colors */
@@ -20,7 +21,7 @@
   /* Spacing & Radius */
   --spacing-base: 8px;
   --radius-s: 4px;
-  --radius-m: 8px;
+  --radius-md: 8px;
   --radius-l: 12px;
 
   /* Typography */
@@ -43,6 +44,6 @@
   }
 
   .sticky-table-header {
-    @apply sticky top-0 bg-surface-base border-b border-border-subtle z-10;
+    @apply sticky top-0 bg-surface-base border-b border-slate-200 z-10;
   }
 }

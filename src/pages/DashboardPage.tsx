@@ -1,9 +1,18 @@
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Calendar, Users, MessageSquare, TrendingUp, Loader2, AlertCircle, Clock, UserPlus, PlusCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useDashboardStats, useEvents } from '../hooks/useApi';
 
-const StatCard = ({ title, value, change, icon: Icon, isLoading }: any) => (
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  change: string;
+  icon: LucideIcon;
+  isLoading: boolean;
+}
+
+const StatCard = ({ title, value, change, icon: Icon, isLoading }: StatCardProps) => (
   <Card>
     <CardHeader className="flex flex-row items-center justify-between pb-2">
       <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
@@ -28,7 +37,7 @@ const StatCard = ({ title, value, change, icon: Icon, isLoading }: any) => (
 const ActivityIcon = ({ type }: { type: string }) => {
   switch (type) {
     case 'user_registration':
-      return <div className="p-2 bg-blue-50 rounded-full text-blue-500"><UserPlus className="h-4 w-4" /></div>;
+      return <div className="p-2 bg-primary-main/10 rounded-full text-primary-main"><UserPlus className="h-4 w-4" /></div>;
     case 'event_creation':
       return <div className="p-2 bg-green-50 rounded-full text-green-500"><PlusCircle className="h-4 w-4" /></div>;
     default:
@@ -106,7 +115,7 @@ export default function DashboardPage() {
                       <div className="font-medium text-slate-900">{event.eventName}</div>
                       <div className="text-xs text-slate-500">{new Date(event.eventStartDate).toLocaleDateString()}</div>
                     </div>
-                    <div className="text-xs font-medium text-brand-primary">
+                    <div className="text-xs font-medium text-primary-main">
                       {event.eventLocation}
                     </div>
                   </div>

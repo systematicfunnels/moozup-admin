@@ -11,8 +11,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, intent = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
     const variants = {
-      primary: 'bg-brand-primary text-white hover:bg-blue-700 shadow-sm',
-      secondary: 'bg-white text-slate-700 border border-border-subtle hover:bg-slate-50',
+      primary: 'bg-primary-main text-white hover:bg-primary-main/90 shadow-sm',
+      secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50',
       ghost: 'bg-transparent text-slate-600 hover:bg-slate-100',
       danger: 'bg-status-danger text-white hover:bg-red-700 shadow-sm',
     };
@@ -27,8 +27,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
+        aria-busy={isLoading}
         className={cn(
-          'inline-flex items-center justify-center rounded-m font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary disabled:pointer-events-none disabled:opacity-50',
+          'inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary-main/20 disabled:pointer-events-none disabled:opacity-50',
           variants[intent],
           sizes[size],
           className
@@ -36,7 +37,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {isLoading ? (
-          <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <>
+            <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />
+            <span className="sr-only">Loading...</span>
+          </>
         ) : null}
         {children}
       </button>
