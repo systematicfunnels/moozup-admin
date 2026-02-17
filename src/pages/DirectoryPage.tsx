@@ -2,21 +2,24 @@ import { useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { User, Mail, Plus, Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
-import { useDirectory, useUpdateUserStatus, useCommunities } from '../hooks/useApi';
+import { User, Mail, Plus, Loader2, AlertCircle, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
+import { useDirectory, useUpdateUserStatus, useCommunities, useDeleteDirectoryUser } from '../hooks/useApi';
 import { useEventContext } from '../context/EventContext';
 import { Button } from '../components/ui/Button';
 import { CreateMemberModal } from '../components/directory/CreateMemberModal';
-import type { ApiError } from '../types/api';
+import type { ApiError, DirectoryUser } from '../types/api';
 
 export default function DirectoryPage() {
   const { selectedEventId } = useEventContext();
   const { data: users, isLoading, isError, error } = useDirectory(selectedEventId || undefined);
   const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
   const updateUserStatus = useUpdateUserStatus();
+  const deleteUserMutation = useDeleteDirectoryUser();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
+  const [editingUser, setEditingUser] = useState<DirectoryUser | null>(null);
 
   const apiError = error as ApiError | null;
 
@@ -51,6 +54,21 @@ export default function DirectoryPage() {
     }
   };
 
+  const handleEdit = (user: DirectoryUser) => {
+    setEditingUser(user);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (userId: number) => {
+    if (window.confirm('Are you sure you want to delete this member?')) {
+      try {
+        await deleteUserMutation.mutateAsync(userId);
+      } catch (err) {
+        console.error('Failed to delete member:', err);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -82,14 +100,22 @@ export default function DirectoryPage() {
         description="Browse and manage all users and community members."
         action={{ 
           label: 'Add Member', 
-          onClick: () => setIsModalOpen(true),
+          onClick: () => {
+            setEditingUser(null);
+            setIsModalOpen(true);
+          },
           icon: <Plus className="w-4 h-4" />
         }}
       />
 
       <CreateMemberModal 
+        key={editingUser ? `edit-${editingUser.id}` : 'create'}
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingUser(null);
+        }}
+        initialData={editingUser}
       />
 
       {/* Community Assignment Modal */}
@@ -208,25 +234,46 @@ export default function DirectoryPage() {
                       {user.companyName || '—'}
                     </td>
                     <td className="px-6 py-4">
-                      <Button
-                        size="sm"
-                        intent={user.status ? 'secondary' : 'primary'}
-                        onClick={() => handleStatusToggle(user.id, user.status)}
-                        isLoading={updateUserStatus.isPending && updateUserStatus.variables?.userId === user.id}
-                        className="gap-2"
-                      >
-                        {user.status ? (
-                          <>
-                            <XCircle className="w-4 h-4" />
-                            Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            Approve
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          intent="secondary"
+                          onClick={() => handleEdit(user)}
+                          className="h-8 w-8 p-0"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          intent="danger"
+                          onClick={() => handleDelete(user.id)}
+                          isLoading={deleteUserMutation.isPending && deleteUserMutation.variables === user.id}
+                          className="h-8 w-8 p-0"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          intent={user.status ? 'secondary' : 'primary'}
+                          onClick={() => handleStatusToggle(user.id, user.status)}
+                          isLoading={updateUserStatus.isPending && updateUserStatus.variables?.userId === user.id}
+                          className="gap-2"
+                        >
+                          {user.status ? (
+                            <>
+                              <XCircle className="w-4 h-4" />
+                              Deactivate
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Approve
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

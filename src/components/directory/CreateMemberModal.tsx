@@ -2,39 +2,62 @@ import React, { useState } from 'react';
 import { X, User, Building2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useCreateDirectoryUser, useParticipationTypes, useCommunities } from '../../hooks/useApi';
+import { useCreateDirectoryUser, useUpdateDirectoryUser, useParticipationTypes, useCommunities } from '../../hooks/useApi';
 import { useEventContext } from '../../context/EventContext';
 
-import type { Community, ParticipationType } from '../../types/api';
+import type { Community, ParticipationType, DirectoryUser } from '../../types/api';
 
 interface CreateMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialData?: DirectoryUser | null;
 }
 
-export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
+export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMemberModalProps) {
   const [step, setStep] = useState(1);
   const { selectedEventId } = useEventContext();
   const createMemberMutation = useCreateDirectoryUser();
+  const updateMemberMutation = useUpdateDirectoryUser();
   const { data: participationTypes, isLoading: isLoadingParticipationTypes } = useParticipationTypes(selectedEventId ?? undefined);
   const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
   
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    participationTypeId: '',
-    communityId: '',
-    companyName: '',
-    jobTitle: '',
-    city: '',
-    state: '',
-    country: '',
-    facebookUrl: '',
-    linkedinUrl: '',
-    twitterUrl: '',
-    description: '',
+  const [formData, setFormData] = useState(() => {
+    if (initialData) {
+      return {
+        firstName: initialData.firstName || '',
+        lastName: initialData.lastName || '',
+        email: initialData.email || '',
+        phoneNumber: initialData.phoneNumber || '',
+        participationTypeId: initialData.participationType?.id?.toString() || initialData.participationTypeId?.toString() || '',
+        communityId: initialData.communityId?.toString() || initialData.community?.id?.toString() || '',
+        companyName: initialData.companyName || '',
+        jobTitle: initialData.jobTitle || '',
+        city: initialData.city || '',
+        state: initialData.state || '',
+        country: initialData.country || '',
+        facebookUrl: initialData.facebookUrl || '',
+        linkedinUrl: initialData.linkedinUrl || '',
+        twitterUrl: initialData.twitterUrl || '',
+        description: initialData.description || '',
+      };
+    }
+    return {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phoneNumber: '',
+      participationTypeId: '',
+      communityId: '',
+      companyName: '',
+      jobTitle: '',
+      city: '',
+      state: '',
+      country: '',
+      facebookUrl: '',
+      linkedinUrl: '',
+      twitterUrl: '',
+      description: '',
+    };
   });
 
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
@@ -70,37 +93,48 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
     }
 
     // Add userType if communityId is provided
+    let userType = 'EVENT';
     if (formData.communityId) {
-      data.append('userType', 'COMMUNITY');
-    } else {
-      data.append('userType', 'EVENT');
+      userType = 'COMMUNITY';
     }
+    data.append('userType', userType);
 
     try {
-      await createMemberMutation.mutateAsync(data);
+      if (initialData) {
+        await updateMemberMutation.mutateAsync({
+          id: initialData.id,
+          data
+        });
+      } else {
+        await createMemberMutation.mutateAsync({
+          data,
+          eventId: userType === 'EVENT' ? selectedEventId ?? undefined : undefined
+        });
+      }
       onClose();
-      setStep(1);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phoneNumber: '',
-        participationTypeId: '',
-        communityId: '',
-        companyName: '',
-        jobTitle: '',
-        city: '',
-        state: '',
-        country: '',
-        facebookUrl: '',
-        linkedinUrl: '',
-        twitterUrl: '',
-        description: '',
-      });
-      setProfilePicture(null);
     } catch (error) {
-      console.error('Failed to add member:', error);
+      console.error('Failed to save member:', error);
     }
+  };
+
+  const isSubmitting = createMemberMutation.isPending || updateMemberMutation.isPending;
+
+  const handleNextStep = () => {
+    if (step === 1) {
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.phoneNumber) {
+        alert("Please fill in all required fields (First Name, Last Name, Email, Phone Number)");
+        return;
+      }
+      if (selectedEventId && !formData.communityId && !formData.participationTypeId) {
+        if (!participationTypes || participationTypes.length === 0) {
+          alert("No Participation Types available. Please select a Community or ensure Participation Types are configured for this event.");
+        } else {
+          alert("Please select a Participation Type");
+        }
+        return;
+      }
+    }
+    setStep(s => Math.min(3, s + 1));
   };
 
   const renderStep = () => {
@@ -149,18 +183,18 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
             />
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">
-                Participation Type <span className="text-status-danger">*</span>
+                Participation Type {selectedEventId && !formData.communityId && <span className="text-status-danger">*</span>}
               </label>
               <select
                 name="participationTypeId"
                 value={formData.participationTypeId}
                 onChange={handleInputChange}
-                required
+                required={!!(selectedEventId && !formData.communityId)}
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoadingParticipationTypes}
+                disabled={isLoadingParticipationTypes || (!participationTypes?.length && !isLoadingParticipationTypes)}
               >
                 <option value="">
-                  {isLoadingParticipationTypes ? 'Loading types...' : 'Select Type'}
+                  {isLoadingParticipationTypes ? 'Loading types...' : (!participationTypes?.length ? (selectedEventId ? 'No types available' : 'Not applicable (Global User)') : 'Select Type')}
                 </option>
                 {!isLoadingParticipationTypes && participationTypes?.map((type: ParticipationType) => (
                   <option key={type.id} value={type.id}>
@@ -178,9 +212,11 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
                 value={formData.communityId}
                 onChange={handleInputChange}
                 className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoadingCommunities}
+                disabled={isLoadingCommunities || (!communities?.length && !isLoadingCommunities)}
               >
-                <option value="">{isLoadingCommunities ? 'Loading communities...' : 'No Community'}</option>
+                <option value="">
+                  {isLoadingCommunities ? 'Loading communities...' : (!communities?.length ? 'No communities available' : 'No Community')}
+                </option>
                 {!isLoadingCommunities && communities?.map((community: Community) => (
                   <option key={community.id} value={community.id}>
                     {community.name}
@@ -274,7 +310,7 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Add New Member</h2>
+            <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit Member' : 'Add New Member'}</h2>
             <p className="text-sm text-slate-500">Step {step} of 3</p>
           </div>
           <button
@@ -302,7 +338,7 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
           {step < 3 ? (
             <Button
               type="button"
-              onClick={() => setStep(s => Math.min(3, s + 1))}
+              onClick={handleNextStep}
             >
               Next Step
             </Button>
@@ -310,9 +346,9 @@ export function CreateMemberModal({ isOpen, onClose }: CreateMemberModalProps) {
             <Button
               type="submit"
               onClick={handleSubmit}
-              isLoading={createMemberMutation.isPending}
+              isLoading={isSubmitting}
             >
-              Add Member
+              {initialData ? 'Update Member' : 'Add Member'}
             </Button>
           )}
         </div>

@@ -8,25 +8,47 @@ import {
   Loader2, 
   AlertCircle,
   Calendar,
-  User
+  User,
+  Edit2,
+  Trash2
 } from 'lucide-react';
-import { useNewsPosts } from '../hooks/useApi';
+import { useNewsPosts, useDeleteNewsPost } from '../hooks/useApi';
 import { CreateNewsModal } from '../components/news/CreateNewsModal';
 import { useEventContext } from '../context/EventContext';
-import type { ApiError } from '../types/api';
+import type { ApiError, NewsPost } from '../types/api';
 
 export default function NewsPage() {
   const { selectedEventId } = useEventContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [postToEdit, setPostToEdit] = useState<NewsPost | null>(null);
   
   const { data: newsPosts, isLoading, isError, error } = useNewsPosts({ 
     eventId: selectedEventId || undefined
   });
+  
+  const deleteNewsPost = useDeleteNewsPost();
 
   const apiError = error as ApiError | null;
 
   const handleCreate = () => {
+    setPostToEdit(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (post: NewsPost) => {
+    setPostToEdit(post);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this news post? This action cannot be undone.')) {
+      try {
+        await deleteNewsPost.mutateAsync(id);
+      } catch (error) {
+        console.error('Failed to delete news post:', error);
+        alert('Failed to delete news post. Please try again.');
+      }
+    }
   };
 
   return (
@@ -41,11 +63,14 @@ export default function NewsPage() {
         }}
       />
 
-      <CreateNewsModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        initialEventId={selectedEventId || undefined}
-      />
+      {isModalOpen && (
+        <CreateNewsModal 
+          isOpen={true} 
+          onClose={() => setIsModalOpen(false)} 
+          initialEventId={selectedEventId || undefined}
+          postToEdit={postToEdit}
+        />
+      )}
 
       {!selectedEventId ? (
         <Card>
@@ -91,6 +116,22 @@ export default function NewsPage() {
                         <span>{new Date(post.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(post)}
+                      className="p-2 text-slate-400 hover:text-primary-main hover:bg-primary-50 rounded-lg transition-colors"
+                      title="Edit Post"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(post.id)}
+                      className="p-2 text-slate-400 hover:text-status-danger hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete Post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 

@@ -10,25 +10,45 @@ import {
   Calendar,
   User,
   Heart,
-  Share2
+  Share2,
+  Edit,
+  Trash2
 } from 'lucide-react';
-import { useSocialPosts } from '../hooks/useApi';
+import { useSocialPosts, useDeleteSocialPost } from '../hooks/useApi';
 import { CreateSocialModal } from '../components/social/CreateSocialModal';
 import { useEventContext } from '../context/EventContext';
-import type { ApiError } from '../types/api';
+import type { ApiError, SocialPost } from '../types/api';
 
 export default function SocialPage() {
   const { selectedEventId } = useEventContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
   
   const { data: socialPosts, isLoading, isError, error } = useSocialPosts({ 
     eventId: selectedEventId || undefined
   });
+  const deleteSocialPost = useDeleteSocialPost();
 
   const apiError = error as ApiError | null;
 
   const handleCreate = () => {
+    setEditingPost(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (post: SocialPost) => {
+    setEditingPost(post);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (postId: number) => {
+    if (window.confirm('Are you sure you want to delete this post?')) {
+      try {
+        await deleteSocialPost.mutateAsync(postId);
+      } catch (error) {
+        console.error('Failed to delete post:', error);
+      }
+    }
   };
 
   return (
@@ -43,11 +63,17 @@ export default function SocialPage() {
         }}
       />
 
-      <CreateSocialModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        initialEventId={selectedEventId || undefined}
-      />
+      {isModalOpen && (
+        <CreateSocialModal 
+          isOpen={true} 
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingPost(null);
+          }} 
+          initialEventId={selectedEventId || undefined}
+          initialData={editingPost}
+        />
+      )}
 
       {!selectedEventId ? (
         <Card>
@@ -102,6 +128,23 @@ export default function SocialPage() {
                         <span>{new Date(post.createdAt).toLocaleDateString()} {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleEdit(post)}
+                      className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-primary-main"
+                      title="Edit post"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(post.id)}
+                      className="p-2 hover:bg-red-50 rounded-full transition-colors text-slate-500 hover:text-red-600"
+                      title="Delete post"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 

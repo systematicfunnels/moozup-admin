@@ -1,36 +1,32 @@
-import { useState, useEffect, useRef } from 'react';
-import { X, Award, Loader2, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Award, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useEvents, useSponsorTypes } from '../../hooks/useApi';
-import { apiClient } from '../../lib/api';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEvents, useSponsorTypes, useCreateSponsor, useUpdateSponsor } from '../../hooks/useApi';
+import type { Sponsor } from '../../types/api';
 
 interface CreateSponsorModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialEventId?: number;
+  sponsorToEdit?: Sponsor;
 }
 
-export const CreateSponsorModal = ({ isOpen, onClose, initialEventId }: CreateSponsorModalProps) => {
-  const [name, setName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [sponsorTypeId, setSponsorTypeId] = useState<string>('');
-  const [eventId, setEventId] = useState<string>('');
+export const CreateSponsorModal = ({ isOpen, onClose, initialEventId, sponsorToEdit }: CreateSponsorModalProps) => {
+  const [name, setName] = useState(() => sponsorToEdit ? sponsorToEdit.name : '');
+  const [website, setWebsite] = useState(() => sponsorToEdit ? (sponsorToEdit.website || '') : '');
+  const [sponsorTypeId, setSponsorTypeId] = useState<string>(() => sponsorToEdit ? sponsorToEdit.sponsorTypeId.toString() : '');
+  const [eventId, setEventId] = useState<string>(() => 
+    sponsorToEdit ? (sponsorToEdit.sponsorType?.eventId?.toString() || initialEventId?.toString() || '') : (initialEventId?.toString() || '')
+  );
   const [logo, setLogo] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preview, setPreview] = useState<string>(() => sponsorToEdit ? (sponsorToEdit.logo || '') : '');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
   const { data: events, isLoading: isLoadingEvents } = useEvents();
   const { data: sponsorTypes, isLoading: isLoadingSponsorTypes } = useSponsorTypes(eventId || 0);
-
-  useEffect(() => {
-    if (initialEventId) {
-      setEventId(initialEventId.toString());
-    }
-  }, [initialEventId, isOpen]);
+  const createSponsor = useCreateSponsor();
+  const updateSponsor = useUpdateSponsor();
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -42,26 +38,43 @@ export const CreateSponsorModal = ({ isOpen, onClose, initialEventId }: CreateSp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !sponsorTypeId || !eventId || isSubmitting) return;
+    
+    // Validate form data
+    if (!name) {
+      console.error('Missing name');
+      return;
+    }
+    if (!sponsorTypeId) {
+      console.error('Missing sponsorTypeId');
+      return;
+    }
+    if (!eventId) {
+      console.error('Missing eventId');
+      return;
+    }
 
-    setIsSubmitting(true);
     const formData = new FormData();
     formData.append('name', name);
-    if (website) formData.append('website', website);
+    formData.append('website', website || '');
     formData.append('sponsorTypeId', sponsorTypeId);
     formData.append('eventId', eventId);
     if (logo) formData.append('logo', logo);
 
     try {
-      await apiClient.post('/directory/sponsors', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      queryClient.invalidateQueries({ queryKey: ['sponsors', eventId] });
+      if (sponsorToEdit) {
+        await updateSponsor.mutateAsync({
+          id: sponsorToEdit.id,
+          data: formData
+        });
+      } else {
+        await createSponsor.mutateAsync({ 
+          data: formData, 
+          eventId: parseInt(eventId) 
+        });
+      }
       handleClose();
     } catch (error) {
-      console.error('Failed to create sponsor:', error);
-    } finally {
-      setIsSubmitting(false);
+      console.error('Failed to save sponsor:', error);
     }
   };
 
@@ -84,7 +97,7 @@ export const CreateSponsorModal = ({ isOpen, onClose, initialEventId }: CreateSp
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-primary-main" />
-            <h2 className="text-xl font-bold text-slate-900">Add Event Sponsor</h2>
+            <h2 className="text-xl font-bold text-slate-900">{sponsorToEdit ? 'Edit Sponsor' : 'Add Event Sponsor'}</h2>
           </div>
           <button onClick={handleClose} className="p-2 hover:bg-slate-50 rounded-lg transition-colors">
             <X className="w-5 h-5 text-slate-500" />
@@ -123,7 +136,10 @@ export const CreateSponsorModal = ({ isOpen, onClose, initialEventId }: CreateSp
                 required
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:opacity-50"
                 value={eventId}
-                onChange={(e) => setEventId(e.target.value)}
+                onChange={(e) => {
+                  setEventId(e.target.value);
+                  setSponsorTypeId(''); // Reset sponsor type when event changes
+                }}
                 disabled={isLoadingEvents}
               >
                 <option value="">{isLoadingEvents ? 'Loading events...' : 'Select an event'}</option>
@@ -175,15 +191,8 @@ export const CreateSponsorModal = ({ isOpen, onClose, initialEventId }: CreateSp
             <Button type="button" intent="secondary" onClick={handleClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Add Sponsor'
-              )}
+            <Button type="submit" isLoading={createSponsor.isPending || updateSponsor.isPending}>
+              {sponsorToEdit ? 'Update Sponsor' : 'Add Sponsor'}
             </Button>
           </div>
         </form>

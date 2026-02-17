@@ -39,7 +39,7 @@ export const useEvents = () => {
   return useQuery({
     queryKey: ['events'],
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponse<Event[]>>('/events/getEvent');
+      const response = await apiClient.get<ApiResponse<Event[]>>('/events');
       return response.data.data || [];
     },
   });
@@ -49,7 +49,7 @@ export const useEventDetails = (id: string | number) => {
   return useQuery({
     queryKey: ['events', id],
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponse<Event>>(`/events/event/details/${id}`);
+      const response = await apiClient.get<ApiResponse<Event>>(`/events/${id}`);
       return response.data.data;
     },
     enabled: !!id,
@@ -61,7 +61,7 @@ export const useCreateEvent = () => {
   
   return useMutation({
     mutationFn: async ({ data, onProgress }: { data: FormData; onProgress?: (percent: number) => void }) => {
-      const response = await apiClient.post<ApiResponse<{ event: Event }>>('/events/createEvent', data, {
+      const response = await apiClient.post<ApiResponse<{ event: Event }>>('/events', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -83,7 +83,7 @@ export const useUpdateEvent = () => {
   
   return useMutation({
     mutationFn: async ({ id, data, onProgress }: { id: number; data: FormData; onProgress?: (percent: number) => void }) => {
-      const response = await apiClient.put<ApiResponse<{ event: Event }>>(`/events/updateEvent/${id}`, data, {
+      const response = await apiClient.put<ApiResponse<{ event: Event }>>(`/events/${id}`, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -108,7 +108,7 @@ export const useDeleteEvent = () => {
   
   return useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiClient.delete(`/events/deleteEvent/${id}`);
+      const response = await apiClient.delete(`/events/${id}`);
       return response.data;
     },
     onSuccess: () => {
@@ -124,7 +124,7 @@ export const useSessions = (eventId: number | string | undefined) => {
     queryKey: ['sessions', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<Session[]>>(`/agenda/getAllSessions/${eventId}`);
+      const response = await apiClient.get<ApiResponse<Session[]>>(`/agenda/events/${eventId}/sessions`);
       // Handle potential raw array response
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
@@ -138,7 +138,7 @@ export const useSessionTypes = (eventId: number | string | undefined) => {
     queryKey: ['session-types', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<SessionType[]>>(`/agenda/getAllSessionTypes?eventId=${eventId}`);
+      const response = await apiClient.get<ApiResponse<SessionType[]>>(`/agenda/events/${eventId}/types`);
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
     },
@@ -151,7 +151,7 @@ export const useCreateSession = () => {
   
   return useMutation({
     mutationFn: async (data: Partial<Session>) => {
-      const response = await apiClient.post<ApiResponse<Session>>('/agenda/createSession', data);
+      const response = await apiClient.post<ApiResponse<Session>>(`/agenda/events/${data.eventId}/sessions`, data);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -167,7 +167,7 @@ export const useUpdateSession = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Session> }) => {
-      const response = await apiClient.put<ApiResponse<Session>>(`/agenda/updateSession/${id}`, data);
+      const response = await apiClient.put<ApiResponse<Session>>(`/agenda/sessions/${id}`, data);
       return response.data.data;
     },
     onSuccess: (data) => {
@@ -183,7 +183,7 @@ export const useDeleteSession = () => {
   
   return useMutation({
     mutationFn: async (id: number) => {
-      await apiClient.delete(`/agenda/deleteSession/${id}`);
+      await apiClient.delete(`/agenda/sessions/${id}`);
       return id;
     },
     onSuccess: () => {
@@ -199,10 +199,9 @@ export const useSponsors = (eventId: number | string | undefined) => {
     queryKey: ['sponsors', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<any>(`/directory/sponsors?eventId=${eventId}`);
-      // Handle response format from getAllSponsors: { message, data: { sponsors: [], pagination: {} } }
-      if (response.data?.data?.sponsors && Array.isArray(response.data.data.sponsors)) {
-        return response.data.data.sponsors as Sponsor[];
+      const response = await apiClient.get<ApiResponse<Sponsor[]>>(`/directory/events/${eventId}/sponsors`);
+      if (Array.isArray(response.data.data)) {
+        return response.data.data;
       }
       return [] as Sponsor[];
     },
@@ -215,7 +214,7 @@ export const useSponsorTypes = (eventId: number | string | undefined) => {
     queryKey: ['sponsor-types', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<SponsorType[]>>(`/directory/sponsor-types/event/${eventId}`);
+      const response = await apiClient.get<ApiResponse<SponsorType[]>>(`/directory/events/${eventId}/sponsor-types`);
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
     },
@@ -227,8 +226,12 @@ export const useCreateSponsor = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: Partial<Sponsor>) => {
-      const response = await apiClient.post<ApiResponse<Sponsor>>('/directory/sponsors', data);
+    mutationFn: async ({ data, eventId }: { data: FormData; eventId: number }) => {
+      const response = await apiClient.post<ApiResponse<Sponsor>>(`/directory/events/${eventId}/sponsors`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -243,13 +246,18 @@ export const useUpdateSponsor = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Sponsor> }) => {
-      const response = await apiClient.put<ApiResponse<Sponsor>>(`/directory/sponsors/${id}`, data);
+    mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
+      const response = await apiClient.put<ApiResponse<Sponsor>>(`/directory/sponsors/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data.data;
     },
     onSuccess: (data) => {
-      if (data.eventId) {
-        queryClient.invalidateQueries({ queryKey: ['sponsors', data.eventId] });
+      const eventId = data.sponsorType?.eventId || data.eventId;
+      if (eventId) {
+        queryClient.invalidateQueries({ queryKey: ['sponsors', eventId] });
       }
     },
   });
@@ -274,15 +282,25 @@ export const useDeleteSponsor = () => {
 export const useDirectory = (eventId: number | string | undefined) => {
   return useQuery({
     queryKey: ['directory', eventId],
-    queryFn: async () => {
+    queryFn: async (): Promise<DirectoryUser[]> => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<DirectoryUser[]> | DirectoryUser[]>(`/directory/people/event/${eventId}`);
+      const response = await apiClient.get<unknown>(`/directory/events/${eventId}/people`);
+      
+      const responseData = response.data;
       
       // Handle both raw array and wrapped response format
-      if (Array.isArray(response.data)) {
-        return response.data;
+      if (Array.isArray(responseData)) {
+        return responseData as DirectoryUser[];
       }
-      return response.data.data || [];
+      
+      // Handle paginated response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = responseData as any;
+      if (data?.data?.users && Array.isArray(data.data.users)) {
+        return data.data.users as DirectoryUser[];
+      }
+      
+      return (data?.data || []) as DirectoryUser[];
     },
     enabled: !!eventId,
   });
@@ -293,7 +311,7 @@ export const useUpdateUserStatus = () => {
   
   return useMutation({
     mutationFn: async ({ userId, status, communityId }: { userId: number; status: boolean; communityId?: number }) => {
-      const response = await apiClient.patch(`/directory/people/status/${userId}`, { status, communityId });
+      const response = await apiClient.patch(`/directory/people/${userId}/status`, { status, communityId });
       return response.data;
     },
     onSuccess: () => {
@@ -306,13 +324,50 @@ export const useCreateDirectoryUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: FormData) => {
-      const response = await apiClient.post<ApiResponse<DirectoryUser>>('/directory/people', data, {
+    mutationFn: async ({ data, eventId }: { data: FormData; eventId?: number | string }) => {
+      let url = '/directory/people';
+      if (eventId) {
+        url = `/directory/events/${eventId}/people`;
+      }
+      
+      const response = await apiClient.post<ApiResponse<DirectoryUser>>(url, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
       return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['directory'] });
+    },
+  });
+};
+
+export const useUpdateDirectoryUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
+      const response = await apiClient.put<ApiResponse<DirectoryUser>>(`/directory/people/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['directory'] });
+    },
+  });
+};
+
+export const useDeleteDirectoryUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/directory/people/${id}`);
+      return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['directory'] });
@@ -327,11 +382,21 @@ export const useCreateDirectoryUser = () => {
 export const useExhibitors = (eventId: number | string | undefined) => {
   return useQuery({
     queryKey: ['exhibitors', eventId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Exhibitor[]> => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<Exhibitor[]>>(`/directory/exhibitors?eventId=${eventId}`);
-      if (Array.isArray(response.data)) return response.data;
-      return response.data.data || [];
+      const response = await apiClient.get<unknown>(`/directory/events/${eventId}/exhibitors`);
+      const responseData = response.data;
+      
+      if (Array.isArray(responseData)) return responseData as Exhibitor[];
+      
+      // Handle paginated response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = responseData as any;
+      if (data?.data?.exhibitors && Array.isArray(data.data.exhibitors)) {
+        return data.data.exhibitors as Exhibitor[];
+      }
+      
+      return (data?.data || []) as Exhibitor[];
     },
     enabled: !!eventId,
   });
@@ -342,7 +407,7 @@ export const useExhibitorTypes = (eventId: number | string | undefined) => {
     queryKey: ['exhibitor-types', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<ExhibitorType[]>>(`/directory/exhibitor-types/event/${eventId}`);
+      const response = await apiClient.get<ApiResponse<ExhibitorType[]>>(`/directory/events/${eventId}/exhibitor-types`);
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
     },
@@ -354,8 +419,12 @@ export const useCreateExhibitor = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: Partial<Exhibitor>) => {
-      const response = await apiClient.post<ApiResponse<Exhibitor>>('/directory/exhibitors', data);
+    mutationFn: async ({ data, eventId }: { data: FormData; eventId: number }) => {
+      const response = await apiClient.post<ApiResponse<Exhibitor>>(`/directory/events/${eventId}/exhibitors`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -370,8 +439,12 @@ export const useUpdateExhibitor = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: Partial<Exhibitor> }) => {
-      const response = await apiClient.put<ApiResponse<Exhibitor>>(`/directory/exhibitors/${id}`, data);
+    mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
+      const response = await apiClient.put<ApiResponse<Exhibitor>>(`/directory/exhibitors/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       return response.data.data;
     },
     onSuccess: (data) => {
@@ -403,7 +476,7 @@ export const usePolls = (eventId: number | string | undefined) => {
     queryKey: ['polls', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<Poll[]>>(`/engage/polls?eventId=${eventId}`);
+      const response = await apiClient.get<ApiResponse<Poll[]>>(`/engage/events/${eventId}/polls`);
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
     },
@@ -447,7 +520,7 @@ export const useGalleryItems = (eventId: number | string | undefined) => {
     queryKey: ['gallery', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<GalleryItem[]>>(`/gallery/event/${eventId}`);
+      const response = await apiClient.get<ApiResponse<GalleryItem[]>>(`/gallery/events/${eventId}`);
       if (Array.isArray(response.data)) return response.data;
       return response.data.data || [];
     },
@@ -460,7 +533,7 @@ export const useUploadGalleryItem = () => {
   
   return useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await apiClient.post<ApiResponse<GalleryItem>>('/gallery/createGallery', formData, {
+      const response = await apiClient.post<ApiResponse<GalleryItem>>('/gallery', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -481,7 +554,7 @@ export const useDeleteGalleryItem = () => {
   
   return useMutation({
     mutationFn: async (id: number) => {
-      await apiClient.delete(`/gallery/deleteGalleryItems/${id}`);
+      await apiClient.delete(`/gallery/${id}`);
       return id;
     },
     onSuccess: () => {
@@ -496,9 +569,20 @@ export const useCommunities = () => {
   return useQuery({
     queryKey: ['communities'],
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponse<Community[]>>('/community');
-      if (Array.isArray(response.data)) return response.data;
-      return response.data.data || [];
+      const response = await apiClient.get<unknown>('/community');
+      const responseData = response.data;
+
+      if (Array.isArray(responseData)) {
+        return responseData as Community[];
+      }
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = responseData as any;
+      if (data?.data && Array.isArray(data.data)) {
+        return data.data as Community[];
+      }
+      
+      return [] as Community[];
     },
   });
 };
@@ -569,12 +653,23 @@ export const useDeleteCommunity = () => {
 
 export const useParticipationTypes = (eventId: number | string | undefined) => {
   return useQuery({
-    queryKey: ['participation-types', eventId],
+    queryKey: ['participationTypes', eventId],
     queryFn: async () => {
       if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<ParticipationType[]>>(`/directory/participation-type/event/${eventId}`);
-      if (Array.isArray(response.data)) return response.data;
-      return response.data.data || [];
+      const response = await apiClient.get<unknown>(`/directory/events/${eventId}/participation-types`);
+      const responseData = response.data;
+
+      if (Array.isArray(responseData)) {
+        return responseData as ParticipationType[];
+      }
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = responseData as any;
+      if (data?.data && Array.isArray(data.data)) {
+        return data.data as ParticipationType[];
+      }
+      
+      return [] as ParticipationType[];
     },
     enabled: !!eventId,
   });
@@ -587,8 +682,8 @@ export const useNewsPosts = (params: { eventId?: number; communityId?: number })
     queryKey: ['news', params],
     queryFn: async () => {
       const endpoint = params.eventId 
-        ? `/news/event/${params.eventId}` 
-        : `/news/community/${params.communityId}`;
+        ? `/news/events/${params.eventId}/posts` 
+        : `/news/communities/${params.communityId}/posts`;
       const response = await apiClient.get<{ posts: NewsPost[] }>(endpoint);
       return response.data.posts;
     },
@@ -601,7 +696,19 @@ export const useCreateNewsPost = () => {
   
   return useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await apiClient.post<{ data: NewsPost }>('/news', formData, {
+      const eventId = formData.get('eventId');
+      const communityId = formData.get('communityId');
+      
+      let endpoint = '';
+      if (eventId) {
+        endpoint = `/news/events/${eventId}/posts`;
+      } else if (communityId) {
+        endpoint = `/news/communities/${communityId}/posts`;
+      } else {
+        throw new Error('Either eventId or communityId is required');
+      }
+
+      const response = await apiClient.post<{ data: NewsPost }>(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -616,6 +723,41 @@ export const useCreateNewsPost = () => {
   });
 };
 
+export const useUpdateNewsPost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
+      const response = await apiClient.put<{ data: NewsPost }>(`/news/posts/${id}`, data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data.data;
+    },
+    onSuccess: (_, variables) => {
+      const eventId = variables.data.get('eventId');
+      const communityId = variables.data.get('communityId');
+      queryClient.invalidateQueries({ queryKey: ['news', { eventId: eventId ? Number(eventId) : undefined, communityId: communityId ? Number(communityId) : undefined }] });
+    },
+  });
+};
+
+export const useDeleteNewsPost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/news/posts/${id}`);
+      return id;
+    },
+    onSuccess: () => {
+      // Invalidate all news queries since we don't know the eventId/communityId easily without passing it
+      queryClient.invalidateQueries({ queryKey: ['news'] });
+    },
+  });
+};
+
 // --- Social Hooks ---
 
 export const useSocialPosts = (params: { eventId?: number; communityId?: number }) => {
@@ -623,8 +765,8 @@ export const useSocialPosts = (params: { eventId?: number; communityId?: number 
     queryKey: ['social', params],
     queryFn: async () => {
       const endpoint = params.eventId 
-        ? `/social/event/${params.eventId}` 
-        : `/social/community/${params.communityId}`;
+        ? `/social/events/${params.eventId}/posts` 
+        : `/social/communities/${params.communityId}/posts`;
       const response = await apiClient.get<{ posts: SocialPost[] }>(endpoint);
       return response.data.posts;
     },
@@ -637,11 +779,48 @@ export const useCreateSocialPost = () => {
   
   return useMutation({
     mutationFn: async (data: { content: string; eventId?: number; communityId?: number }) => {
-      const response = await apiClient.post<{ data: SocialPost }>('/social', data);
+      let endpoint = '';
+      if (data.eventId) {
+        endpoint = `/social/events/${data.eventId}/posts`;
+      } else if (data.communityId) {
+        endpoint = `/social/communities/${data.communityId}/posts`;
+      } else {
+        throw new Error('Either eventId or communityId is required');
+      }
+      
+      const response = await apiClient.post<{ data: SocialPost }>(endpoint, { content: data.content });
       return response.data.data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['social', { eventId: variables.eventId, communityId: variables.communityId }] });
+    },
+  });
+};
+
+export const useUpdateSocialPost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { content: string; eventId?: number; communityId?: number } }) => {
+      const response = await apiClient.put<{ data: SocialPost }>(`/social/posts/${id}`, data);
+      return response.data.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['social', { eventId: data.eventId, communityId: data.communityId }] });
+    },
+  });
+};
+
+export const useDeleteSocialPost = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/social/posts/${id}`);
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social'] });
     },
   });
 };
@@ -652,7 +831,7 @@ export const useFeatureSettings = (eventId: number | string | undefined) => {
   return useQuery({
     queryKey: ['feature-settings', eventId],
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponse<FeatureTabSetting[]>>(`/feature-settings/${eventId}`);
+      const response = await apiClient.get<ApiResponse<FeatureTabSetting[]>>(`/feature-settings/events/${eventId}`);
       if (Array.isArray(response.data)) {
         return response.data;
       }

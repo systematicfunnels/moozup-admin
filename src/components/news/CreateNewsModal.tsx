@@ -1,41 +1,55 @@
 import { useState } from 'react';
-import { X, Upload, Loader2 } from 'lucide-react';
+import { X, Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useCreateNewsPost, useEvents } from '../../hooks/useApi';
+import { useCreateNewsPost, useUpdateNewsPost, useEvents } from '../../hooks/useApi';
+import type { NewsPost } from '../../types/api';
 
 interface CreateNewsModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialEventId?: number;
+  postToEdit?: NewsPost | null;
 }
 
-export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsModalProps) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [eventId, setEventId] = useState<string>(initialEventId?.toString() || '');
-  const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+export const CreateNewsModal = ({ isOpen, onClose, initialEventId, postToEdit }: CreateNewsModalProps) => {
+  const [title, setTitle] = useState(() => postToEdit ? (postToEdit.title || '') : '');
+  const [content, setContent] = useState(() => postToEdit ? (postToEdit.description || '') : '');
+  const [eventId, setEventId] = useState<string>(() => 
+    postToEdit ? (postToEdit.eventId?.toString() || initialEventId?.toString() || '') : (initialEventId?.toString() || '')
+  );
+  
+  // Existing images from the post being edited
+  const [existingImages, setExistingImages] = useState<string[]>(() => postToEdit ? (postToEdit.images || []) : []);
+  
+  // New images to be uploaded
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
   
   const { data: events, isLoading: isLoadingEvents } = useEvents();
   const createNewsPost = useCreateNewsPost();
+  const updateNewsPost = useUpdateNewsPost();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setImages(prev => [...prev, ...newFiles]);
+      setNewImages(prev => [...prev, ...newFiles]);
       
       const newPreviews = newFiles.map(file => URL.createObjectURL(file));
-      setPreviews(prev => [...prev, ...newPreviews]);
+      setNewImagePreviews(prev => [...prev, ...newPreviews]);
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => {
+  const removeNewImage = (index: number) => {
+    setNewImages(prev => prev.filter((_, i) => i !== index));
+    setNewImagePreviews(prev => {
       URL.revokeObjectURL(prev[index]);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const removeExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,41 +62,59 @@ export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsM
     formData.append('content', content);
     formData.append('eventId', eventId);
     
-    images.forEach(image => {
+    // Append existing images (backend expects array of strings)
+    existingImages.forEach(imageUrl => {
+      formData.append('existingImages', imageUrl);
+    });
+    
+    // Append new images
+    newImages.forEach(image => {
       formData.append('images', image);
     });
 
     try {
-      await createNewsPost.mutateAsync(formData);
+      if (postToEdit) {
+        await updateNewsPost.mutateAsync({ id: postToEdit.id, data: formData });
+      } else {
+        await createNewsPost.mutateAsync(formData);
+      }
       handleClose();
     } catch (error) {
-      console.error('Failed to create news post:', error);
+      console.error('Failed to save news post:', error);
     }
   };
 
   const handleClose = () => {
+    // Reset form state is handled by useEffect when isOpen changes or explicitly here if needed immediately
+    // Clean up previews
+    newImagePreviews.forEach(url => URL.revokeObjectURL(url));
+    setNewImagePreviews([]);
+    setNewImages([]);
+    setExistingImages([]);
     setTitle('');
     setContent('');
     setEventId('');
-    setImages([]);
-    previews.forEach(url => URL.revokeObjectURL(url));
-    setPreviews([]);
+    
     onClose();
   };
 
   if (!isOpen) return null;
 
+  const isSubmitting = createNewsPost.isPending || updateNewsPost.isPending;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900">Post Official News</h2>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+          <h2 className="text-xl font-bold text-slate-900">
+            {postToEdit ? 'Edit Official News' : 'Post Official News'}
+          </h2>
           <button onClick={handleClose} className="p-2 hover:bg-slate-50 rounded-lg transition-colors">
             <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-grow">
           <div className="space-y-4">
             <div>
               <label htmlFor="modal-event" className="block text-sm font-medium text-slate-700 mb-1">
@@ -94,7 +126,7 @@ export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsM
                 className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:opacity-50"
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
-                disabled={isLoadingEvents}
+                disabled={isLoadingEvents || isSubmitting}
               >
                 <option value="">{isLoadingEvents ? 'Loading events...' : 'Select an event'}</option>
                 {!isLoadingEvents && events?.map((event) => (
@@ -111,6 +143,7 @@ export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsM
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={isSubmitting}
             />
 
             <div>
@@ -121,10 +154,11 @@ export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsM
                 id="modal-content"
                 required
                 rows={5}
-                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main resize-none"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main resize-none disabled:opacity-50"
                 placeholder="Share the details of your announcement here..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -133,54 +167,60 @@ export const CreateNewsModal = ({ isOpen, onClose, initialEventId }: CreateNewsM
                 Images (Optional)
               </label>
               <div className="grid grid-cols-4 gap-4">
-                {previews.map((url, index) => (
-                  <div key={url} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 group">
-                    <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                {/* Existing Images */}
+                {existingImages.map((url, index) => (
+                  <div key={`existing-${index}`} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 group">
+                    <img src={url} alt="Existing" className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => removeImage(index)}
+                      onClick={() => removeExistingImage(index)}
                       className="absolute top-1 right-1 p-1 bg-white/90 rounded-md shadow-sm text-status-danger opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
-                {previews.length < 5 && (
-                  <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-md cursor-pointer hover:border-primary-main hover:bg-slate-50 transition-all group">
-                    <Upload className="w-6 h-6 text-slate-400 group-hover:text-primary-main mb-1" />
-                    <span className="text-[10px] font-medium text-slate-500 group-hover:text-primary-main">Upload</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                )}
+
+                {/* New Image Previews */}
+                {newImagePreviews.map((url, index) => (
+                  <div key={`new-${index}`} className="relative aspect-square rounded-md overflow-hidden border border-slate-200 group">
+                    <img src={url} alt="New Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(index)}
+                      className="absolute top-1 right-1 p-1 bg-white/90 rounded-md shadow-sm text-status-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                
+                <label className={`
+                  flex flex-col items-center justify-center aspect-square rounded-md border-2 border-dashed border-slate-200 
+                  cursor-pointer hover:border-primary-main hover:bg-primary-50/50 transition-colors
+                  ${isSubmitting ? 'opacity-50 pointer-events-none' : ''}
+                `}>
+                  <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                  <span className="text-xs text-slate-500 font-medium">Add Image</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageChange}
+                    disabled={isSubmitting}
+                  />
+                </label>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
-                You can upload up to 5 images. High-quality landscape images work best.
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button type="button" intent="secondary" onClick={handleClose}>
+          <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-auto">
+            <Button intent="secondary" onClick={handleClose} type="button" disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={createNewsPost.isPending || !title || !content || !eventId}
-            >
-              {createNewsPost.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Posting...
-                </>
-              ) : (
-                'Post Announcement'
-              )}
+            <Button type="submit" disabled={isSubmitting} isLoading={isSubmitting}>
+              {postToEdit ? 'Save Changes' : 'Post News'}
             </Button>
           </div>
         </form>

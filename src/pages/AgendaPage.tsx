@@ -2,18 +2,36 @@ import { useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, Clock, MapPin, Loader2, AlertCircle, Calendar } from 'lucide-react';
-import { useSessions } from '../hooks/useApi';
+import { Plus, Clock, MapPin, Loader2, AlertCircle, Calendar, Trash2 } from 'lucide-react';
+import { useSessions, useDeleteSession } from '../hooks/useApi';
 import { CreateSessionModal } from '../components/agenda/CreateSessionModal';
 import { useEventContext } from '../context/EventContext';
-import type { ApiError } from '../types/api';
+import type { ApiError, Session } from '../types/api';
 
 export default function AgendaPage() {
   const { selectedEventId } = useEventContext();
   const { data: sessions, isLoading, isError, error } = useSessions(selectedEventId || 0);
+  const deleteSession = useDeleteSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sessionToEdit, setSessionToEdit] = useState<Session | undefined>(undefined);
 
   const apiError = error as ApiError | null;
+
+  const handleEdit = (session: Session) => {
+    setSessionToEdit(session);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this session?')) {
+      deleteSession.mutate(id);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSessionToEdit(undefined);
+  };
 
   return (
     <div>
@@ -28,9 +46,11 @@ export default function AgendaPage() {
       />
 
       <CreateSessionModal 
+        key={sessionToEdit ? `edit-${sessionToEdit.id}` : 'create'}
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
         initialEventId={selectedEventId || undefined}
+        sessionToEdit={sessionToEdit}
       />
 
       {!selectedEventId ? (
@@ -86,7 +106,12 @@ export default function AgendaPage() {
                     </div>
                   </div>
                 </div>
-                <Button intent="secondary" size="sm">Edit</Button>
+                <div className="flex gap-2">
+                  <Button intent="secondary" size="sm" onClick={() => handleEdit(session)}>Edit</Button>
+                  <Button intent="danger" size="sm" onClick={() => handleDelete(session.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

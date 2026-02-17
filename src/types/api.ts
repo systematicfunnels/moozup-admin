@@ -44,7 +44,12 @@ export interface DirectoryUser {
   description?: string;
   note?: string;
   uid?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  participationTypeId?: number;
   participationType?: {
+    id?: number;
     personParticipationType: string;
     groupParticipationName: string;
   };
@@ -215,6 +220,12 @@ export interface Exhibitor {
   website?: string;
   aboutCompany?: string;
   location?: string;
+  stall?: string;
+  email?: string;
+  phone?: string;
+  facebookPageUrl?: string;
+  linkedinPageUrl?: string;
+  twitterPageUrl?: string;
   exhibitorTypeId: number;
   exhibitorType?: ExhibitorType;
   eventId: number;

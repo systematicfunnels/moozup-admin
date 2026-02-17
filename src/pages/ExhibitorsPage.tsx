@@ -2,16 +2,39 @@ import { useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, Briefcase, Globe, MapPin, Loader2, AlertCircle, Image as ImageIcon } from 'lucide-react';
-import { useExhibitors } from '../hooks/useApi';
+import { Plus, Briefcase, Globe, MapPin, Loader2, AlertCircle, Image as ImageIcon, Pencil, Trash2, Store, Mail, Phone, Facebook, Linkedin, Twitter } from 'lucide-react';
+import { useExhibitors, useDeleteExhibitor } from '../hooks/useApi';
 import { CreateExhibitorModal } from '../components/directory/CreateExhibitorModal';
 import { useEventContext } from '../context/EventContext';
-import type { ApiError } from '../types/api';
+import type { ApiError, Exhibitor } from '../types/api';
 
 export default function ExhibitorsPage() {
   const { selectedEventId } = useEventContext();
   const { data: exhibitors, isLoading, isError, error } = useExhibitors(selectedEventId || 0);
+  const deleteExhibitor = useDeleteExhibitor();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [exhibitorToEdit, setExhibitorToEdit] = useState<Exhibitor | undefined>(undefined);
+
+  const handleEdit = (exhibitor: Exhibitor) => {
+    setExhibitorToEdit(exhibitor);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this exhibitor?')) {
+      try {
+        await deleteExhibitor.mutateAsync(id);
+      } catch (error) {
+        console.error('Failed to delete exhibitor:', error);
+        alert('Failed to delete exhibitor');
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setExhibitorToEdit(undefined);
+  };
 
   const apiError = error as ApiError | null;
 
@@ -22,15 +45,20 @@ export default function ExhibitorsPage() {
         description="Manage event exhibitors and floor plan assignments."
         action={{ 
           label: 'Add Exhibitor', 
-          onClick: () => setIsModalOpen(true),
+          onClick: () => {
+            setExhibitorToEdit(undefined);
+            setIsModalOpen(true);
+          },
           icon: <Plus className="w-4 h-4" />
         }}
       />
 
       <CreateExhibitorModal 
+        key={exhibitorToEdit ? `edit-${exhibitorToEdit.id}` : 'create'}
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
         initialEventId={selectedEventId || undefined}
+        exhibitorToEdit={exhibitorToEdit}
       />
 
       {!selectedEventId ? (
@@ -83,6 +111,24 @@ export default function ExhibitorsPage() {
                       <span>{exhibitor.location}</span>
                     </div>
                   )}
+                  {exhibitor.stall && (
+                    <div className="flex items-center text-xs text-slate-500 gap-2">
+                      <Store className="w-3.5 h-3.5" />
+                      <span>{exhibitor.stall}</span>
+                    </div>
+                  )}
+                  {exhibitor.email && (
+                    <div className="flex items-center text-xs text-slate-500 gap-2">
+                      <Mail className="w-3.5 h-3.5" />
+                      <a href={`mailto:${exhibitor.email}`} className="hover:underline">{exhibitor.email}</a>
+                    </div>
+                  )}
+                  {exhibitor.phone && (
+                    <div className="flex items-center text-xs text-slate-500 gap-2">
+                      <Phone className="w-3.5 h-3.5" />
+                      <a href={`tel:${exhibitor.phone}`} className="hover:underline">{exhibitor.phone}</a>
+                    </div>
+                  )}
                   {exhibitor.website && (
                     <div className="flex items-center text-xs text-slate-500 gap-2">
                       <Globe className="w-3.5 h-3.5" />
@@ -91,9 +137,48 @@ export default function ExhibitorsPage() {
                       </a>
                     </div>
                   )}
+                  <div className="flex gap-3 mt-1">
+                    {exhibitor.facebookPageUrl && (
+                      <a href={exhibitor.facebookPageUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1877F2] transition-colors">
+                        <Facebook className="w-4 h-4" />
+                      </a>
+                    )}
+                    {exhibitor.linkedinPageUrl && (
+                      <a href={exhibitor.linkedinPageUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#0A66C2] transition-colors">
+                        <Linkedin className="w-4 h-4" />
+                      </a>
+                    )}
+                    {exhibitor.twitterPageUrl && (
+                      <a href={exhibitor.twitterPageUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#1DA1F2] transition-colors">
+                        <Twitter className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-6 flex justify-end">
-                  <Button intent="secondary" size="sm">Manage Booth</Button>
+                <div className="mt-6 flex justify-end gap-2">
+                  <Button 
+                    intent="secondary" 
+                    size="sm"
+                    onClick={() => handleEdit(exhibitor)}
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button 
+                    intent="danger" 
+                    size="sm"
+                    onClick={() => handleDelete(exhibitor.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                  <Button 
+                    intent="secondary" 
+                    size="sm"
+                    onClick={() => handleEdit(exhibitor)}
+                  >
+                    Manage Booth
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -104,7 +189,10 @@ export default function ExhibitorsPage() {
           <CardContent className="py-12 flex flex-col items-center justify-center text-center">
             <div className="text-slate-500 mb-2 font-medium">No exhibitors found for this event.</div>
             <p className="text-sm text-slate-400 mb-6 max-w-xs">Organize your exhibition floor by adding your first exhibitor.</p>
-            <Button onClick={() => {}}>
+            <Button onClick={() => {
+              setExhibitorToEdit(undefined);
+              setIsModalOpen(true);
+            }}>
               <Plus className="w-4 h-4 mr-2" />
               Add Exhibitor
             </Button>

@@ -2,17 +2,39 @@ import { useState } from 'react';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, Award, Globe, Loader2, AlertCircle, Image as ImageIcon } from 'lucide-react';
-import { useSponsors } from '../hooks/useApi';
+import { Plus, Award, Globe, Loader2, AlertCircle, Image as ImageIcon, Edit, Trash2 } from 'lucide-react';
+import { useSponsors, useDeleteSponsor } from '../hooks/useApi';
 import { CreateSponsorModal } from '../components/directory/CreateSponsorModal';
 import { useEventContext } from '../context/EventContext';
-import type { ApiError } from '../types/api';
+import type { ApiError, Sponsor } from '../types/api';
 
 export default function SponsorsPage() {
   const { selectedEventId } = useEventContext();
   const { data: sponsors, isLoading, isError, error } = useSponsors(selectedEventId || 0);
+  const deleteSponsor = useDeleteSponsor();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sponsorToEdit, setSponsorToEdit] = useState<Sponsor | undefined>(undefined);
   const apiError = error as ApiError | null;
+
+  const handleEdit = (sponsor: Sponsor) => {
+    setSponsorToEdit(sponsor);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this sponsor?')) {
+      try {
+        await deleteSponsor.mutateAsync(id);
+      } catch (error) {
+        console.error('Failed to delete sponsor:', error);
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSponsorToEdit(undefined);
+  };
 
   return (
     <div>
@@ -27,9 +49,11 @@ export default function SponsorsPage() {
       />
 
       <CreateSponsorModal 
+        key={sponsorToEdit ? `edit-${sponsorToEdit.id}` : 'create'}
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={handleCloseModal} 
         initialEventId={selectedEventId || undefined}
+        sponsorToEdit={sponsorToEdit}
       />
 
       {!selectedEventId ? (
@@ -85,8 +109,15 @@ export default function SponsorsPage() {
                     </a>
                   )}
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end">
-                  <Button intent="secondary" size="sm">Edit</Button>
+                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-end gap-2">
+                  <Button intent="secondary" size="sm" onClick={() => handleEdit(sponsor)}>
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button intent="danger" size="sm" onClick={() => handleDelete(sponsor.id)}>
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Delete
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -97,7 +128,7 @@ export default function SponsorsPage() {
           <CardContent className="py-12 flex flex-col items-center justify-center text-center">
             <div className="text-slate-500 mb-2 font-medium">No sponsors found for this event.</div>
             <p className="text-sm text-slate-400 mb-6 max-w-xs">Showcase event partners by adding your first sponsor.</p>
-            <Button onClick={() => {}}>
+            <Button onClick={() => setIsModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Add Sponsor
             </Button>
