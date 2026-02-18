@@ -160,7 +160,9 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
         }
         if (!formData.participationTypeId) {
           if (!participationTypes || participationTypes.length === 0) {
-            alert("No Participation Types available for the selected event.");
+            alert(
+              "No Participation Types available for the selected event. You need at least one participation type configured for that event in the backend (e.g. \"Attendee\", \"Speaker\")."
+            );
           } else {
             alert("Please select a Participation Type");
           }
@@ -302,6 +304,14 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
                       </option>
                     ))}
                   </select>
+                  {!isLoadingParticipationTypes && participationTypes && participationTypes.length > 0 && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Available roles for this event ({participationTypes.length}):{' '}
+                      {participationTypes
+                        .map((type: ParticipationType) => type.personParticipationType || type.groupParticipationName)
+                        .join(', ')}
+                    </p>
+                  )}
                 </div>
               </>
             )}
