@@ -14,21 +14,28 @@ import {
   Award,
   Briefcase,
   Image as ImageIcon,
-  Share2
+  Share2,
+  Users as CommunityIcon
 } from 'lucide-react';
 
-const navItems = [
+interface NavItem {
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  href: string;
+}
+
+const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
   { icon: Calendar, label: 'Events', href: '/events' },
-  { icon: Clock, label: 'Agenda', href: '/agenda' },
+  { icon: Clock, label: 'Agenda & Sessions', href: '/agenda' },
   { icon: Award, label: 'Sponsors', href: '/sponsors' },
   { icon: Briefcase, label: 'Exhibitors', href: '/exhibitors' },
   { icon: Newspaper, label: 'Official News', href: '/news' },
   { icon: Share2, label: 'Social Feed', href: '/social' },
-  { icon: Users, label: 'Directory', href: '/directory' },
+  { icon: Users, label: 'Members', href: '/directory' },
   { icon: MessageSquare, label: 'Engagement', href: '/engagement' },
   { icon: ImageIcon, label: 'Gallery', href: '/gallery' },
-  { icon: Newspaper, label: 'Community', href: '/community' },
+  { icon: CommunityIcon, label: 'Community', href: '/community' },
   { icon: ShieldCheck, label: 'Moderation', href: '/moderation' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ];

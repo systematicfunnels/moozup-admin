@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3010/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3010/api/v1';
 
 if (!import.meta.env.VITE_API_BASE_URL) {
   console.warn('VITE_API_BASE_URL is not defined in environment variables. Defaulting to localhost.');
@@ -23,6 +23,42 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor to handle token expiration
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const refreshToken = localStorage.getItem('admin_refresh_token');
+
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+            refreshToken,
+          });
+
+          if (response.data.accessToken) {
+            localStorage.setItem('admin_token', response.data.accessToken);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
+            originalRequest.headers['Authorization'] = `Bearer ${response.data.accessToken}`;
+            return apiClient(originalRequest);
+          }
+        } catch (refreshError) {
+          // Token refresh failed, redirect to login
+          window.dispatchEvent(new CustomEvent('unauthorized'));
+          return Promise.reject(refreshError);
+        }
+      } else {
+        // No refresh token, redirect to login
+        window.dispatchEvent(new CustomEvent('unauthorized'));
+      }
+    }
     return Promise.reject(error);
   }
 );

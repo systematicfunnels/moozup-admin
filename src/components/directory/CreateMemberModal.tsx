@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { X, User, Building2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useCreateDirectoryUser, useUpdateDirectoryUser, useParticipationTypes, useCommunities } from '../../hooks/useApi';
+import { useCreateDirectoryUser, useUpdateDirectoryUser, useParticipationTypes, useCommunities, useEvents } from '../../hooks/useApi';
 import { useEventContext } from '../../context/EventContext';
 
-import type { Community, ParticipationType, DirectoryUser } from '../../types/api';
+import type { Community, ParticipationType, DirectoryUser, Event } from '../../types/api';
 
 interface CreateMemberModalProps {
   isOpen: boolean;
@@ -16,9 +16,25 @@ interface CreateMemberModalProps {
 export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMemberModalProps) {
   const [step, setStep] = useState(1);
   const { selectedEventId } = useEventContext();
+  
+  // Determine initial user type and event ID
+  const [userType, setUserType] = useState<'EVENT' | 'COMMUNITY'>(() => {
+    if (initialData?.communityId) return 'COMMUNITY';
+    return 'EVENT';
+  });
+
+  const [targetEventId, setTargetEventId] = useState<string>(() => {
+    // If editing, try to find event ID from context or data (though directory user might not explicitly store eventId in the flat object, it's usually inferred)
+    // For now, default to selectedEventId from context
+    return selectedEventId?.toString() || '';
+  });
+
   const createMemberMutation = useCreateDirectoryUser();
   const updateMemberMutation = useUpdateDirectoryUser();
-  const { data: participationTypes, isLoading: isLoadingParticipationTypes } = useParticipationTypes(selectedEventId ?? undefined);
+  
+  // Fetch data based on selections
+  const { data: events, isLoading: isLoadingEvents } = useEvents();
+  const { data: participationTypes, isLoading: isLoadingParticipationTypes } = useParticipationTypes(targetEventId || undefined);
   const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
   
   const [formData, setFormData] = useState(() => {
@@ -32,13 +48,18 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
         communityId: initialData.communityId?.toString() || initialData.community?.id?.toString() || '',
         companyName: initialData.companyName || '',
         jobTitle: initialData.jobTitle || '',
-        city: initialData.city || '',
-        state: initialData.state || '',
-        country: initialData.country || '',
+        profilePicture: initialData.profilePicture || '',
+        description: initialData.description || '',
         facebookUrl: initialData.facebookUrl || '',
         linkedinUrl: initialData.linkedinUrl || '',
         twitterUrl: initialData.twitterUrl || '',
-        description: initialData.description || '',
+        webProfile: initialData.webProfile || '',
+        city: initialData.city || '',
+        state: initialData.state || '',
+        country: initialData.country || '',
+        status: initialData.status || true,
+        note: initialData.note || '',
+        uid: initialData.uid || '',
       };
     }
     return {
@@ -50,13 +71,18 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
       communityId: '',
       companyName: '',
       jobTitle: '',
-      city: '',
-      state: '',
-      country: '',
+      profilePicture: '',
+      description: '',
       facebookUrl: '',
       linkedinUrl: '',
       twitterUrl: '',
-      description: '',
+      webProfile: '',
+      city: '',
+      state: '',
+      country: '',
+      status: true,
+      note: '',
+      uid: '',
     };
   });
 
@@ -85,18 +111,19 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
     
     const data = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
+        if (typeof value === 'string' || typeof value === 'boolean') {
+          data.append(key, value.toString());
+        } else if (value && typeof value === 'object' && 'name' in value && 'size' in value) {
+          // Type guard for File-like objects
+          data.append(key, value as File);
+        }
     });
     
     if (profilePicture) {
       data.append('profilePicture', profilePicture);
     }
 
-    // Add userType if communityId is provided
-    let userType = 'EVENT';
-    if (formData.communityId) {
-      userType = 'COMMUNITY';
-    }
+    // Add userType
     data.append('userType', userType);
 
     try {
@@ -108,7 +135,7 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
       } else {
         await createMemberMutation.mutateAsync({
           data,
-          eventId: userType === 'EVENT' ? selectedEventId ?? undefined : undefined
+          eventId: userType === 'EVENT' ? (targetEventId ? parseInt(targetEventId) : undefined) : undefined
         });
       }
       onClose();
@@ -125,13 +152,30 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
         alert("Please fill in all required fields (First Name, Last Name, Email, Phone Number)");
         return;
       }
-      if (selectedEventId && !formData.communityId && !formData.participationTypeId) {
-        if (!participationTypes || participationTypes.length === 0) {
-          alert("No Participation Types available. Please select a Community or ensure Participation Types are configured for this event.");
-        } else {
-          alert("Please select a Participation Type");
+      
+      if (userType === 'EVENT') {
+        if (!targetEventId) {
+          alert("Please select an Event");
+          return;
         }
-        return;
+        if (!formData.participationTypeId) {
+          if (!participationTypes || participationTypes.length === 0) {
+            alert("No Participation Types available for the selected event.");
+          } else {
+            alert("Please select a Participation Type");
+          }
+          return;
+        }
+      } else {
+        // COMMUNITY
+        if (!formData.communityId) {
+           if (!communities || communities.length === 0) {
+            alert("No Communities available.");
+          } else {
+            alert("Please select a Community");
+          }
+          return;
+        }
       }
     }
     setStep(s => Math.min(3, s + 1));
@@ -146,6 +190,33 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
               <User className="h-5 w-5 text-primary-main" />
               Basic Information
             </h3>
+
+            {/* User Type Selection */}
+            <div className="flex gap-4 p-1 bg-slate-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setUserType('EVENT')}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  userType === 'EVENT'
+                    ? 'bg-white text-primary-main shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Event Member
+              </button>
+              <button
+                type="button"
+                onClick={() => setUserType('COMMUNITY')}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  userType === 'COMMUNITY'
+                    ? 'bg-white text-primary-main shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Community Member
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="First Name"
@@ -181,49 +252,83 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
               placeholder="+1 234 567 890"
               required
             />
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">
-                Participation Type {selectedEventId && !formData.communityId && <span className="text-status-danger">*</span>}
-              </label>
-              <select
-                name="participationTypeId"
-                value={formData.participationTypeId}
-                onChange={handleInputChange}
-                required={!!(selectedEventId && !formData.communityId)}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoadingParticipationTypes || (!participationTypes?.length && !isLoadingParticipationTypes)}
-              >
-                <option value="">
-                  {isLoadingParticipationTypes ? 'Loading types...' : (!participationTypes?.length ? (selectedEventId ? 'No types available' : 'Not applicable (Global User)') : 'Select Type')}
-                </option>
-                {!isLoadingParticipationTypes && participationTypes?.map((type: ParticipationType) => (
-                  <option key={type.id} value={type.id}>
-                    {type.personParticipationType || type.groupParticipationName}
+
+            {userType === 'EVENT' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">
+                    Event <span className="text-status-danger">*</span>
+                  </label>
+                  <select
+                    value={targetEventId}
+                    onChange={(e) => {
+                      setTargetEventId(e.target.value);
+                      // Clear participation type when event changes
+                      setFormData(prev => ({ ...prev, participationTypeId: '' }));
+                    }}
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isLoadingEvents}
+                  >
+                    <option value="">Select Event</option>
+                    {events?.map((event: Event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.eventName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">
+                    Participation Type <span className="text-status-danger">*</span>
+                  </label>
+                  <select
+                    name="participationTypeId"
+                    value={formData.participationTypeId}
+                    onChange={handleInputChange}
+                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!targetEventId || isLoadingParticipationTypes}
+                  >
+                    <option value="">
+                      {!targetEventId 
+                        ? 'Select an Event first'
+                        : isLoadingParticipationTypes 
+                          ? 'Loading types...' 
+                          : (!participationTypes?.length ? 'No types available' : 'Select Type')}
+                    </option>
+                    {!isLoadingParticipationTypes && participationTypes?.map((type: ParticipationType) => (
+                      <option key={type.id} value={type.id}>
+                        {type.personParticipationType || type.groupParticipationName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {userType === 'COMMUNITY' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">
+                  Community <span className="text-status-danger">*</span>
+                </label>
+                <select
+                  name="communityId"
+                  value={formData.communityId}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={isLoadingCommunities || (!communities?.length && !isLoadingCommunities)}
+                >
+                  <option value="">
+                    {isLoadingCommunities ? 'Loading communities...' : (!communities?.length ? 'No communities available' : 'Select Community')}
                   </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">
-                Community (Optional)
-              </label>
-              <select
-                name="communityId"
-                value={formData.communityId}
-                onChange={handleInputChange}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isLoadingCommunities || (!communities?.length && !isLoadingCommunities)}
-              >
-                <option value="">
-                  {isLoadingCommunities ? 'Loading communities...' : (!communities?.length ? 'No communities available' : 'No Community')}
-                </option>
-                {!isLoadingCommunities && communities?.map((community: Community) => (
-                  <option key={community.id} value={community.id}>
-                    {community.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  {!isLoadingCommunities && communities?.map((community: Community) => (
+                    <option key={community.id} value={community.id}>
+                      {community.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         );
       case 2:

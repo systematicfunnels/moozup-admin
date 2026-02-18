@@ -96,7 +96,7 @@ export default function DirectoryPage() {
   return (
     <div>
       <PageHeader 
-        title="Directory" 
+        title="Users" 
         description="Browse and manage all users and community members."
         action={{ 
           label: 'Add Member', 

@@ -1,10 +1,8 @@
-import type { ForwardRefExoticComponent, RefAttributes } from 'react';
-import type { LucideProps } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { NavLink } from 'react-router-dom';
 
 interface SidebarItemProps {
-  icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   label: string;
   href: string;
 }
