@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useSessionTypes, useCreateSession, useUpdateSession, useEvents, useSponsors } from '../../hooks/useApi';
+import { useSessionTypes, useCreateSession, useUpdateSession, useEvents, useSponsors, useDirectory, useCreateSessionType } from '../../hooks/useApi';
 import type { Session } from '../../types/api';
 
 interface CreateSessionModalProps {
@@ -51,6 +51,9 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
   const [sponsorId, setSponsorId] = useState<string>(() => 
     sessionToEdit ? (sessionToEdit.sponsorId?.toString() || '') : ''
   );
+  const [speakerId, setSpeakerId] = useState<string>(() => 
+    sessionToEdit ? (sessionToEdit.speakerId?.toString() || '') : ''
+  );
   const [eventId, setEventId] = useState<string>(() => 
     sessionToEdit ? sessionToEdit.eventId.toString() : (initialEventId?.toString() || '')
   );
@@ -58,8 +61,33 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
   const { data: events } = useEvents();
   const { data: sessionTypes, isLoading: isLoadingSessionTypes } = useSessionTypes(eventId);
   const { data: sponsors, isLoading: isLoadingSponsors } = useSponsors(eventId);
+  const { data: users, isLoading: isLoadingUsers } = useDirectory(eventId);
   const createSession = useCreateSession();
   const updateSession = useUpdateSession();
+  const createSessionTypeMutation = useCreateSessionType();
+
+  const [isAddingSessionType, setIsAddingSessionType] = useState(false);
+  const [newSessionTypeName, setNewSessionTypeName] = useState('');
+  const [newSessionTypeColor, setNewSessionTypeColor] = useState('#3b82f6');
+
+  const handleAddSessionType = async () => {
+    if (!newSessionTypeName || !eventId) return;
+    try {
+      const newType = await createSessionTypeMutation.mutateAsync({
+        eventId: Number(eventId),
+        data: { sessionname: newSessionTypeName, color: newSessionTypeColor }
+      });
+      setIsAddingSessionType(false);
+      setNewSessionTypeName('');
+      setNewSessionTypeColor('#3b82f6');
+      if (newType && newType.id) {
+        setSessionTypeId(newType.id.toString());
+      }
+    } catch (error) {
+      console.error("Failed to create session type", error);
+      alert("Failed to create session type");
+    }
+  };
 
   const handleClose = () => {
     setTitle('');
@@ -69,6 +97,7 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
     setEndTime('');
     setSessionTypeId('');
     setSponsorId('');
+    setSpeakerId('');
     if (!initialEventId) setEventId('');
     onClose();
   };
@@ -89,6 +118,12 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
         if (sponsor) selectedSponsorTypeId = sponsor.sponsorTypeId;
       }
 
+      let selectedParticipationTypeId: number | undefined;
+      if (speakerId && users) {
+        const speaker = users.find(u => u.id === Number(speakerId));
+        if (speaker) selectedParticipationTypeId = speaker.participationTypeId;
+      }
+
       const payload = {
         title,
         description,
@@ -100,6 +135,8 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
         eventId: Number(eventId),
         sponsorId: sponsorId ? Number(sponsorId) : undefined,
         sponsorTypeId: selectedSponsorTypeId,
+        speakerId: speakerId ? Number(speakerId) : undefined,
+        participationTypeId: selectedParticipationTypeId,
       };
 
       if (sessionToEdit) {
@@ -189,29 +226,72 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
             />
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Session Type</label>
-              <select
-                required
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
-                value={sessionTypeId}
-                onChange={(e) => setSessionTypeId(e.target.value)}
-                disabled={!eventId || isLoadingSessionTypes}
-              >
-                <option value="" className="text-slate-500">
-                  {!eventId 
-                    ? 'Select an event first' 
-                    : isLoadingSessionTypes 
-                      ? 'Loading types...' 
-                      : (sessionTypes && sessionTypes.length > 0)
-                        ? 'Select type'
-                        : 'No session types found for this event'}
-                </option>
-                {!isLoadingSessionTypes && Array.isArray(sessionTypes) && sessionTypes.map(type => (
-                  <option key={type.id} value={type.id.toString()} className="text-slate-900">
-                    {type.sessionname || 'Unnamed Type'}
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-slate-700">Session Type</label>
+                {eventId && !isLoadingSessionTypes && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingSessionType(!isAddingSessionType)}
+                    className="text-xs text-primary-main hover:text-primary-dark font-medium underline"
+                  >
+                    {isAddingSessionType ? 'Cancel' : '+ Add New Type'}
+                  </button>
+                )}
+              </div>
+              
+              {isAddingSessionType ? (
+                <div className="flex gap-2 items-end animate-in fade-in slide-in-from-top-2 duration-200 p-2 border border-slate-200 rounded-lg bg-slate-50">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Type Name (e.g. Workshop)"
+                      value={newSessionTypeName}
+                      onChange={(e) => setNewSessionTypeName(e.target.value)}
+                      className="h-9 text-sm bg-white"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="color"
+                      value={newSessionTypeColor}
+                      onChange={(e) => setNewSessionTypeColor(e.target.value)}
+                      className="h-9 w-9 rounded cursor-pointer border-none p-0"
+                      title="Select Color"
+                    />
+                  </div>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    onClick={handleAddSessionType}
+                    disabled={!newSessionTypeName || createSessionTypeMutation.isPending}
+                  >
+                    {createSessionTypeMutation.isPending ? '...' : 'Add'}
+                  </Button>
+                </div>
+              ) : (
+                <select
+                  required
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
+                  value={sessionTypeId}
+                  onChange={(e) => setSessionTypeId(e.target.value)}
+                  disabled={!eventId || isLoadingSessionTypes}
+                >
+                  <option value="" className="text-slate-500">
+                    {!eventId 
+                      ? 'Select an event first' 
+                      : isLoadingSessionTypes 
+                        ? 'Loading types...' 
+                        : (sessionTypes && sessionTypes.length > 0)
+                          ? 'Select type'
+                          : 'No session types found for this event. Click + to add one.'}
                   </option>
-                ))}
-              </select>
+                  {!isLoadingSessionTypes && Array.isArray(sessionTypes) && sessionTypes.map(type => (
+                    <option key={type.id} value={type.id.toString()} className="text-slate-900">
+                      {type.sessionname || 'Unnamed Type'}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -234,6 +314,31 @@ export function CreateSessionModal({ isOpen, onClose, initialEventId, sessionToE
                 {!isLoadingSponsors && Array.isArray(sponsors) && sponsors.map(sponsor => (
                   <option key={sponsor.id} value={sponsor.id.toString()} className="text-slate-900">
                     {sponsor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Speaker (Optional)</label>
+              <select
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
+                value={speakerId}
+                onChange={(e) => setSpeakerId(e.target.value)}
+                disabled={!eventId || isLoadingUsers}
+              >
+                <option value="" className="text-slate-500">
+                  {!eventId 
+                    ? 'Select an event first' 
+                    : isLoadingUsers 
+                      ? 'Loading speakers...' 
+                      : (users && users.length > 0)
+                        ? 'Select speaker'
+                        : 'No potential speakers found'}
+                </option>
+                {!isLoadingUsers && Array.isArray(users) && users.map(user => (
+                  <option key={user.id} value={user.id.toString()} className="text-slate-900">
+                    {user.firstName} {user.lastName} {user.participationType?.personParticipationType ? `(${user.participationType.personParticipationType})` : ''}
                   </option>
                 ))}
               </select>

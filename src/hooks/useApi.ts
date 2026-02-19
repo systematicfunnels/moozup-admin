@@ -146,13 +146,29 @@ export const useSessionTypes = (eventId: number | string | undefined) => {
   });
 };
 
+export const useCreateSessionType = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ eventId, data }: { eventId: number | string; data: { sessionname: string; color: string } }) => {
+      // Backend returns the created session type object directly, not wrapped in { data: ... }
+      const response = await apiClient.post<SessionType>(`/agenda/events/${eventId}/types`, data);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['session-types', variables.eventId] });
+    },
+  });
+};
+
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (data: Partial<Session>) => {
-      const response = await apiClient.post<ApiResponse<Session>>(`/agenda/events/${data.eventId}/sessions`, data);
-      return response.data.data;
+      // Backend returns { message: '...', session: ... }
+      const response = await apiClient.post<any>(`/agenda/events/${data.eventId}/sessions`, data);
+      return response.data.session || response.data.data || response.data;
     },
     onSuccess: (_, variables) => {
       if (variables.eventId) {

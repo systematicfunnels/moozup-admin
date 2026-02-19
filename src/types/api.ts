@@ -185,6 +185,8 @@ export interface Session {
   eventId: number;
   isLive?: boolean;
   wentLiveAt?: string;
+  speakerId?: number;
+  participationTypeId?: number;
 }
 
 export interface SessionType {
