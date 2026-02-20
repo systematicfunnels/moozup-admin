@@ -210,6 +210,63 @@ export const useDeleteSession = () => {
 
 // --- Sponsors Hooks ---
 
+export const useSponsorTypes = (eventId: number | string | undefined) => {
+  return useQuery({
+    queryKey: ['sponsor-types', eventId],
+    queryFn: async () => {
+      if (!eventId) return [];
+      const response = await apiClient.get<ApiResponse<SponsorType[]>>(`/directory/events/${eventId}/sponsor-types`);
+      if (Array.isArray(response.data)) return response.data;
+      return response.data.data || [];
+    },
+    enabled: !!eventId,
+  });
+};
+
+export const useCreateSponsorType = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ eventId, data }: { eventId: number | string; data: { type: string } }) => {
+      const response = await apiClient.post<SponsorType>('/directory/sponsor-types', { ...data, eventId: Number(eventId) });
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sponsor-types', variables.eventId] });
+    },
+  });
+};
+
+export const useUpdateSponsorType = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<SponsorType> }) => {
+      const response = await apiClient.put<SponsorType>(`/directory/sponsor-types/${id}`, data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data.eventId) {
+        queryClient.invalidateQueries({ queryKey: ['sponsor-types', data.eventId] });
+      }
+    },
+  });
+};
+
+export const useDeleteSponsorType = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id }: { id: number; eventId: number }) => {
+      const response = await apiClient.delete(`/directory/sponsor-types/${id}`);
+      return response.data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['sponsor-types', variables.eventId] });
+    },
+  });
+};
+
 export const useSponsors = (eventId: number | string | undefined) => {
   return useQuery({
     queryKey: ['sponsors', eventId],
@@ -220,19 +277,6 @@ export const useSponsors = (eventId: number | string | undefined) => {
         return response.data.data;
       }
       return [] as Sponsor[];
-    },
-    enabled: !!eventId,
-  });
-};
-
-export const useSponsorTypes = (eventId: number | string | undefined) => {
-  return useQuery({
-    queryKey: ['sponsor-types', eventId],
-    queryFn: async () => {
-      if (!eventId) return [];
-      const response = await apiClient.get<ApiResponse<SponsorType[]>>(`/directory/events/${eventId}/sponsor-types`);
-      if (Array.isArray(response.data)) return response.data;
-      return response.data.data || [];
     },
     enabled: !!eventId,
   });
@@ -579,6 +623,20 @@ export const useDeleteGalleryItem = () => {
   });
 };
 
+export const useUpdateGalleryItem = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { imageLabel?: string; videoLabel?: string } }) => {
+      const response = await apiClient.put(`/gallery/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gallery'] });
+    },
+  });
+};
+
 // --- Community Hooks ---
 
 export const useCommunities = () => {
@@ -594,6 +652,11 @@ export const useCommunities = () => {
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = responseData as any;
+
+      if (data?.communities && Array.isArray(data.communities)) {
+        return data.communities as Community[];
+      }
+
       if (data?.data && Array.isArray(data.data)) {
         return data.data as Community[];
       }
@@ -607,8 +670,8 @@ export const useCommunityDetails = (id: string | number) => {
   return useQuery({
     queryKey: ['communities', id],
     queryFn: async () => {
-      const response = await apiClient.get<ApiResponse<Community>>(`/community/${id}`);
-      return response.data.data;
+      const response = await apiClient.get<any>(`/community/${id}`);
+      return response.data.community;
     },
     enabled: !!id,
   });
@@ -619,12 +682,12 @@ export const useCreateCommunity = () => {
   
   return useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiClient.post<ApiResponse<Community>>('/community', data, {
+      const response = await apiClient.post<any>('/community', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return response.data.data;
+      return response.data.community;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });
@@ -637,12 +700,12 @@ export const useUpdateCommunity = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<ApiResponse<Community>>(`/community/${id}`, data, {
+      const response = await apiClient.put<any>(`/community/${id}`, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return response.data.data;
+      return response.data.community;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['communities'] });

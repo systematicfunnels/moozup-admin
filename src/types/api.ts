@@ -277,8 +277,8 @@ export interface GalleryItem {
   type: 'image' | 'video';
   imageUrl?: string;
   videoUrl?: string;
-  imagelabel?: string; // Added
-  Videolabel?: string; // Added (Backend casing)
+  imageLabel?: string; // Corrected casing to match backend
+  videoLabel?: string; // Corrected casing to match backend
   eventId: number;
   caption?: string;
 }

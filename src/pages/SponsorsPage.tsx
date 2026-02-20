@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { PageHeader } from '../components/layout/PageHeader';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Plus, Award, Globe, Loader2, AlertCircle, Image as ImageIcon, Edit, Trash2 } from 'lucide-react';
+import { Plus, Award, Globe, Loader2, AlertCircle, Image as ImageIcon, Edit, Trash2, Settings } from 'lucide-react';
 import { useSponsors, useDeleteSponsor } from '../hooks/useApi';
 import { CreateSponsorModal } from '../components/directory/CreateSponsorModal';
+import { ManageSponsorTypesModal } from '../components/directory/ManageSponsorTypesModal';
 import { useEventContext } from '../context/EventContext';
 import type { ApiError, Sponsor } from '../types/api';
 
@@ -13,6 +13,7 @@ export default function SponsorsPage() {
   const { data: sponsors, isLoading, isError, error } = useSponsors(selectedEventId || 0);
   const deleteSponsor = useDeleteSponsor();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTypesModalOpen, setIsTypesModalOpen] = useState(false);
   const [sponsorToEdit, setSponsorToEdit] = useState<Sponsor | undefined>(undefined);
   const apiError = error as ApiError | null;
 
@@ -38,15 +39,22 @@ export default function SponsorsPage() {
 
   return (
     <div>
-      <PageHeader 
-        title="Sponsors" 
-        description="Manage event sponsors and partnership tiers."
-        action={{ 
-          label: 'Add Sponsor', 
-          onClick: () => setIsModalOpen(true),
-          icon: <Plus className="w-4 h-4" />
-        }}
-      />
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Sponsors</h1>
+          <p className="text-slate-500 mt-1">Manage event sponsors and partnership tiers.</p>
+        </div>
+        <div className="flex gap-2">
+           <Button intent="secondary" onClick={() => setIsTypesModalOpen(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            Manage Tiers
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Sponsor
+          </Button>
+        </div>
+      </div>
 
       <CreateSponsorModal 
         key={sponsorToEdit ? `edit-${sponsorToEdit.id}` : 'create'}
@@ -54,6 +62,12 @@ export default function SponsorsPage() {
         onClose={handleCloseModal} 
         initialEventId={selectedEventId || undefined}
         sponsorToEdit={sponsorToEdit}
+      />
+
+      <ManageSponsorTypesModal
+        isOpen={isTypesModalOpen}
+        onClose={() => setIsTypesModalOpen(false)}
+        eventId={selectedEventId ? Number(selectedEventId) : undefined}
       />
 
       {!selectedEventId ? (

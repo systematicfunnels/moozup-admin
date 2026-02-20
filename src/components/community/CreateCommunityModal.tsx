@@ -45,7 +45,7 @@ export function CreateCommunityModal({ isOpen, onClose, community }: CreateCommu
     Object.entries(data).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         if (Array.isArray(value)) {
-           value.forEach((v) => formDataToSend.append(`${key}[]`, v));
+           value.forEach((v) => formDataToSend.append(key, v));
         } else {
            formDataToSend.append(key, value.toString());
         }

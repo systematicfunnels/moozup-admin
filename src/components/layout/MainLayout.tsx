@@ -47,6 +47,9 @@ export const MainLayout = () => {
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      console.log('Unauthorized event received, redirecting to login');
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
       navigate('/login');
     };
 
