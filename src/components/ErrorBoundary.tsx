@@ -19,11 +19,17 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
+    // Only store the error if necessary, avoid storing large objects
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+  }
+
+  public componentWillUnmount() {
+    // Clean up error state if component unmounts
+    this.setState({ hasError: false, error: null });
   }
 
   private handleReload = () => {

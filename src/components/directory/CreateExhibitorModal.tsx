@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { X, Briefcase, Image as ImageIcon, MapPin, Globe, Store, Mail, Phone, Facebook, Linkedin, Twitter } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useEvents, useExhibitorTypes, useCreateExhibitor, useUpdateExhibitor } from '../../hooks/useApi';
+import { useEvents, useCreateExhibitor, useUpdateExhibitor } from '../../hooks/useApi';
 import type { Exhibitor } from '../../types/api';
 
 interface CreateExhibitorModalProps {
@@ -23,7 +23,7 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
   const [facebookPageUrl, setFacebookPageUrl] = useState(() => exhibitorToEdit ? (exhibitorToEdit.facebookPageUrl || '') : '');
   const [linkedinPageUrl, setLinkedinPageUrl] = useState(() => exhibitorToEdit ? (exhibitorToEdit.linkedinPageUrl || '') : '');
   const [twitterPageUrl, setTwitterPageUrl] = useState(() => exhibitorToEdit ? (exhibitorToEdit.twitterPageUrl || '') : '');
-  const [exhibitorTypeId, setExhibitorTypeId] = useState<string>(() => exhibitorToEdit ? exhibitorToEdit.exhibitorTypeId.toString() : '');
+  const [categoryName, setCategoryName] = useState(() => exhibitorToEdit ? (exhibitorToEdit.exhibitorType?.type || '') : '');
   const [eventId, setEventId] = useState<string>(() => 
     exhibitorToEdit ? (exhibitorToEdit.exhibitorType?.eventId?.toString() || initialEventId?.toString() || '') : (initialEventId?.toString() || '')
   );
@@ -32,7 +32,6 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: events, isLoading: isLoadingEvents } = useEvents();
-  const { data: exhibitorTypes, isLoading: isLoadingExhibitorTypes } = useExhibitorTypes(parseInt(eventId) || 0);
   const createExhibitor = useCreateExhibitor();
   const updateExhibitor = useUpdateExhibitor();
 
@@ -46,7 +45,7 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !exhibitorTypeId || !eventId) return;
+    if (!name || !categoryName || !eventId) return;
 
     const formData = new FormData();
     formData.append('name', name);
@@ -59,7 +58,7 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
     formData.append('facebookPageUrl', facebookPageUrl || '');
     formData.append('linkedinPageUrl', linkedinPageUrl || '');
     formData.append('twitterPageUrl', twitterPageUrl || '');
-    formData.append('exhibitorTypeId', exhibitorTypeId);
+    formData.append('categoryName', categoryName);
     formData.append('eventId', eventId);
     
     if (logo) {
@@ -97,7 +96,7 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
     setFacebookPageUrl('');
     setLinkedinPageUrl('');
     setTwitterPageUrl('');
-    setExhibitorTypeId('');
+    setCategoryName('');
     if (!initialEventId) setEventId('');
     setLogo(null);
     if (preview) URL.revokeObjectURL(preview);
@@ -207,25 +206,13 @@ export const CreateExhibitorModal = ({ isOpen, onClose, initialEventId, exhibito
             </div>
 
             <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Exhibitor Category</label>
-              <select
+              <Input
+                label="Exhibitor Category"
+                placeholder="e.g. Technology / Software"
                 required
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-main/20 focus:border-primary-main"
-                value={exhibitorTypeId}
-                onChange={(e) => setExhibitorTypeId(e.target.value)}
-                disabled={!eventId || isLoadingExhibitorTypes}
-              >
-                <option value="">
-                  {!eventId 
-                    ? 'Select an event first' 
-                    : isLoadingExhibitorTypes 
-                      ? 'Loading categories...' 
-                      : 'Select category'}
-                </option>
-                {!isLoadingExhibitorTypes && exhibitorTypes?.map(type => (
-                  <option key={type.id} value={type.id}>{type.type}</option>
-                ))}
-              </select>
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
             </div>
 
             {/* Location & Contact Info */}

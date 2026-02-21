@@ -24,8 +24,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      retry: 1,
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       refetchOnMount: false,
@@ -33,8 +33,8 @@ const queryClient = new QueryClient({
       select: data => data,
     },
     mutations: {
-      retry: 1,
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
   },
 });

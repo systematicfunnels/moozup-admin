@@ -111,6 +111,13 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
     
     const data = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
+        // Skip fields not relevant to userType
+        if (userType === 'EVENT' && key === 'communityId') return;
+        if (userType === 'COMMUNITY' && key === 'participationTypeId') return;
+
+        // Skip empty strings for optional fields to avoid validation errors
+        if (value === '' && (key === 'participationTypeId' || key === 'communityId')) return;
+
         if (typeof value === 'string' || typeof value === 'boolean') {
           data.append(key, value.toString());
         } else if (value && typeof value === 'object' && 'name' in value && 'size' in value) {

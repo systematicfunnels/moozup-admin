@@ -2,9 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3010/api/v1';
 
-if (!import.meta.env.VITE_API_BASE_URL) {
-  console.warn('VITE_API_BASE_URL is not defined in environment variables. Defaulting to localhost.');
-}
+// Removed console.warn to prevent information disclosure in production
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -27,6 +25,18 @@ apiClient.interceptors.request.use(
   }
 );
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((callback) => callback(token));
+  refreshSubscribers = [];
+}
+
+function addSubscriber(callback: (token: string) => void) {
+  refreshSubscribers.push(callback);
+}
+
 // Interceptor to handle token expiration
 apiClient.interceptors.response.use(
   (response) => response,
@@ -34,7 +44,18 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          addSubscriber((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(originalRequest));
+          });
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
+
       const refreshToken = localStorage.getItem('admin_refresh_token');
 
       if (refreshToken) {
@@ -43,13 +64,20 @@ apiClient.interceptors.response.use(
             refreshToken,
           });
 
-          if (response.data.accessToken) {
-            localStorage.setItem('admin_token', response.data.accessToken);
-            apiClient.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
-            originalRequest.headers['Authorization'] = `Bearer ${response.data.accessToken}`;
+          const data = response.data.data || response.data;
+
+          if (data.accessToken) {
+            localStorage.setItem('admin_token', data.accessToken);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.accessToken}`;
+            
+            isRefreshing = false;
+            onRefreshed(data.accessToken);
+
+            originalRequest.headers['Authorization'] = `Bearer ${data.accessToken}`;
             return apiClient(originalRequest);
           }
         } catch (refreshError) {
+          isRefreshing = false;
           // Token refresh failed, redirect to login
           localStorage.removeItem('admin_token');
           localStorage.removeItem('admin_refresh_token');
@@ -58,6 +86,7 @@ apiClient.interceptors.response.use(
           return Promise.reject(refreshError);
         }
       } else {
+        isRefreshing = false;
         // No refresh token, redirect to login
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_refresh_token');
@@ -65,35 +94,6 @@ apiClient.interceptors.response.use(
         window.dispatchEvent(new CustomEvent('unauthorized'));
       }
     }
-    return Promise.reject(error);
-  }
-);
-
-// Interceptor to handle common errors (e.g., unauthorized)
-apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    // This interceptor seems redundant with the one above, but let's ensure it handles non-refresh 401s if the above one didn't catch it
-    // actually the above one handles ALL 401s.
-    // The previous code had two interceptors doing similar things. I should probably merge them or remove the second one if it's duplicate.
-    // But to be safe and minimal, I will just ensure this one also dispatches CustomEvent and clears storage.
-    
-    if (error.response?.status === 401 && !error.config._retry) {
-       // If the previous interceptor didn't handle it (e.g. if _retry was somehow set but failed?)
-       // Or if this is a second pass.
-       // The previous interceptor sets _retry = true.
-       // If the refresh failed, it rejected the promise.
-       // Does it fall through to here? No, it rejects.
-    }
-    
-    // If we are here and it is 401, it means it wasn't handled or it's a final failure
-    if (error.response?.status === 401) {
-         localStorage.removeItem('admin_token');
-         localStorage.removeItem('admin_refresh_token');
-         localStorage.removeItem('admin_user');
-         window.dispatchEvent(new CustomEvent('unauthorized'));
-    }
-
     return Promise.reject(error);
   }
 );

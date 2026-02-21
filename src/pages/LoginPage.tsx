@@ -20,14 +20,17 @@ const LoginPage: React.FC = () => {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
       
-      if (response.data.accessToken) {
-        localStorage.setItem('admin_token', response.data.accessToken);
-        if (response.data.refreshToken) {
-          localStorage.setItem('admin_refresh_token', response.data.refreshToken);
+      // Check for nested data structure from responseStandardizer
+      const data = response.data.data || response.data;
+      
+      if (data.accessToken) {
+        localStorage.setItem('admin_token', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('admin_refresh_token', data.refreshToken);
         }
         // Also store user info if available
-        if (response.data.user) {
-          localStorage.setItem('admin_user', JSON.stringify(response.data.user));
+        if (data.user) {
+          localStorage.setItem('admin_user', JSON.stringify(data.user));
         }
         navigate('/');
       } else {

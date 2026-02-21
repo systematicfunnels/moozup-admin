@@ -14,13 +14,14 @@ export const normalizeResponse = (response, endpointType = null) => {
     return response.data || response;
   }
   
-  // Handle different response formats based on endpoint type
-  if (endpointType === 'directory') {
-    return normalizeDirectoryResponse(response);
-  } else if (endpointType === 'news' || endpointType === 'social') {
-    return normalizeNewsSocialResponse(response);
-  } else if (endpointType === 'pagination') {
+  // Consolidate response handling
+  if (endpointType === 'pagination') {
     return normalizePaginationResponse(response);
+  }
+  
+  // Directory, news, and social endpoints often return similar structures
+  if (['directory', 'news', 'social'].includes(endpointType)) {
+    return normalizeListResponse(response);
   }
   
   // Default normalization for other endpoints
@@ -28,9 +29,9 @@ export const normalizeResponse = (response, endpointType = null) => {
 };
 
 /**
- * Normalize directory responses (sponsors, exhibitors, users)
+ * Normalize list-based responses (sponsors, exhibitors, users, posts)
  */
-const normalizeDirectoryResponse = (response) => {
+const normalizeListResponse = (response) => {
   if (!response) return [];
   
   // Handle raw array responses
@@ -38,43 +39,14 @@ const normalizeDirectoryResponse = (response) => {
     return response;
   }
   
-  // Handle wrapped responses like { sponsors: [], pagination: {} }
+  // Handle wrapped responses
   if (response && typeof response === 'object') {
-    if (response.sponsors && Array.isArray(response.sponsors)) {
-      return response.sponsors;
-    }
-    if (response.exhibitors && Array.isArray(response.exhibitors)) {
-      return response.exhibitors;
-    }
-    if (response.users && Array.isArray(response.users)) {
-      return response.users;
-    }
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-  }
-  
-  return response;
-};
-
-/**
- * Normalize news/social responses ({ posts: [] })
- */
-const normalizeNewsSocialResponse = (response) => {
-  if (!response) return [];
-  
-  // Handle raw array responses
-  if (Array.isArray(response)) {
-    return response;
-  }
-  
-  // Handle wrapped responses like { posts: [] }
-  if (response && typeof response === 'object') {
-    if (response.posts && Array.isArray(response.posts)) {
-      return response.posts;
-    }
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
+    // Check common list property names
+    const listProperties = ['sponsors', 'exhibitors', 'users', 'posts', 'data'];
+    for (const prop of listProperties) {
+      if (response[prop] && Array.isArray(response[prop])) {
+        return response[prop];
+      }
     }
   }
   

@@ -28,7 +28,16 @@ export const useDashboardStats = () => {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const response = await apiClient.get<ApiResponse<DashboardStats>>('/dashboard/stats');
-      return response.data.data;
+      const responseData = response.data;
+      
+      if (!responseData) return undefined;
+
+      // Handle different response structures
+      if (responseData && typeof responseData === 'object' && 'activeEvents' in responseData) {
+        return responseData as unknown as DashboardStats;
+      }
+      
+      return responseData.data;
     },
   });
 };
