@@ -146,8 +146,13 @@ export function CreateMemberModal({ isOpen, onClose, initialData }: CreateMember
         });
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save member:', error);
+      if (error.response?.data?.message) {
+        alert(`Error: ${error.response.data.message}`);
+      } else {
+        alert("Failed to save member. Please check the console for details.");
+      }
     }
   };
 

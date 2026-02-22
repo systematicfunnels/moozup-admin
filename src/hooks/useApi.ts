@@ -71,9 +71,6 @@ export const useCreateEvent = () => {
   return useMutation({
     mutationFn: async ({ data, onProgress }: { data: FormData; onProgress?: (percent: number) => void }) => {
       const response = await apiClient.post<ApiResponse<{ event: Event }>>('/events', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
           onProgress?.(percent);
@@ -93,9 +90,6 @@ export const useUpdateEvent = () => {
   return useMutation({
     mutationFn: async ({ id, data, onProgress }: { id: number; data: FormData; onProgress?: (percent: number) => void }) => {
       const response = await apiClient.put<ApiResponse<{ event: Event }>>(`/events/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
           onProgress?.(percent);
@@ -296,11 +290,7 @@ export const useCreateSponsor = () => {
   
   return useMutation({
     mutationFn: async ({ data, eventId }: { data: FormData; eventId: number }) => {
-      const response = await apiClient.post<ApiResponse<Sponsor>>(`/directory/events/${eventId}/sponsors`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<ApiResponse<Sponsor>>(`/directory/events/${eventId}/sponsors`, data);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -316,11 +306,7 @@ export const useUpdateSponsor = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<ApiResponse<Sponsor>>(`/directory/sponsors/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.put<ApiResponse<Sponsor>>(`/directory/sponsors/${id}`, data);
       return response.data.data;
     },
     onSuccess: (data) => {
@@ -399,11 +385,7 @@ export const useCreateDirectoryUser = () => {
         url = `/directory/events/${eventId}/people`;
       }
       
-      const response = await apiClient.post<ApiResponse<DirectoryUser>>(url, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<ApiResponse<DirectoryUser>>(url, data);
       return response.data.data;
     },
     onSuccess: () => {
@@ -417,11 +399,7 @@ export const useUpdateDirectoryUser = () => {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<ApiResponse<DirectoryUser>>(`/directory/people/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.put<ApiResponse<DirectoryUser>>(`/directory/people/${id}`, data);
       return response.data.data;
     },
     onSuccess: () => {
@@ -489,11 +467,7 @@ export const useCreateExhibitor = () => {
   
   return useMutation({
     mutationFn: async ({ data, eventId }: { data: FormData; eventId: number }) => {
-      const response = await apiClient.post<ApiResponse<Exhibitor>>(`/directory/events/${eventId}/exhibitors`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<ApiResponse<Exhibitor>>(`/directory/events/${eventId}/exhibitors`, data);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -509,11 +483,7 @@ export const useUpdateExhibitor = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<ApiResponse<Exhibitor>>(`/directory/exhibitors/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.put<ApiResponse<Exhibitor>>(`/directory/exhibitors/${id}`, data);
       return response.data.data;
     },
     onSuccess: (data) => {
@@ -602,11 +572,7 @@ export const useUploadGalleryItem = () => {
   
   return useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await apiClient.post<ApiResponse<GalleryItem>>('/gallery', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<ApiResponse<GalleryItem>>('/gallery', formData);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -691,11 +657,7 @@ export const useCreateCommunity = () => {
   
   return useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiClient.post<any>('/community', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<any>('/community', data);
       return response.data.community;
     },
     onSuccess: () => {
@@ -709,11 +671,7 @@ export const useUpdateCommunity = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<any>(`/community/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.put<any>(`/community/${id}`, data);
       return response.data.community;
     },
     onSuccess: (data) => {
@@ -796,11 +754,7 @@ export const useCreateNewsPost = () => {
         throw new Error('Either eventId or communityId is required');
       }
 
-      const response = await apiClient.post<{ data: NewsPost }>(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.post<{ data: NewsPost }>(endpoint, formData);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
@@ -816,11 +770,7 @@ export const useUpdateNewsPost = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
-      const response = await apiClient.put<{ data: NewsPost }>(`/news/posts/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await apiClient.put<{ data: NewsPost }>(`/news/posts/${id}`, data);
       return response.data.data;
     },
     onSuccess: (_, variables) => {
